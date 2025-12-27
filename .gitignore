@@ -1,0 +1,13 @@
+node_modules/
+venv/
+__pycache__/
+.git
+*.db
+*.sqlite
+manutencar.db
+# Vite build output
+dist/
+# Environment variables
+.env
+# OS metadata
+.DS_Store

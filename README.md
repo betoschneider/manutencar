@@ -1,0 +1,78 @@
+# ManutenCar 🚗
+
+ManutenCar é uma aplicação web cumpre bem o seu papel para gerenciamento de manutenção veicular. O sistema permite que usuários cadastrem seus veículos, registrem manutenções realizadas (com custos de serviço e peças), visualizem o histórico e recebam alertas automáticos baseados em quilometragem ou tempo.
+
+## 🚀 Funcionalidades
+
+-   **Autenticação de Usuários:** Registro e Login seguros (JWT).
+-   **Gestão de Veículos:** Cadastro, edição e listagem de veículos (Marca, Modelo, Ano, KM, Placa).
+-   **Registro de Manutenção:** Lançamento de serviços realizados com controle de custos (Peças e Mão de obra).
+-   **Alertas Inteligentes:** O sistema avisa automaticamente quando uma manutenção está vencida por tempo ou quilometragem.
+-   **Histórico Detalhado:** Visualização completa de todas as manutenções realizadas em cada veículo.
+-   **Dashboard com Gráficos:** Visualização gráfica dos gastos e quantidade de manutenções nos últimos 12 meses.
+-   **Painel Administrativo:** Gestão dos tipos de manutenção e seus intervalos padrão.
+-   **Tema:** Suporte a modo Claro e Escuro.
+
+## 🛠️ Tecnologias Utilizadas
+
+### Backend
+-   **Linguagem:** Python 3.12
+-   **Framework:** FastAPI
+-   **Banco de Dados:** SQLite (via SQLAlchemy)
+-   **Autenticação:** OAuth2 com JWT (Passlib/Jose)
+
+### Frontend
+-   **Framework:** React (Vite)
+-   **UI Library:** Material UI (MUI)
+-   **Gráficos:** Recharts
+-   **HTTP Client:** Axios
+
+### Infraestrutura
+-   **Containerização:** Docker & Docker Compose
+
+## 📦 Como Rodar o Projeto
+
+### Pré-requisitos
+-   Docker e Docker Compose instalados.
+
+### Passo a Passo
+
+1.  **Clone o repositório:**
+    ```bash
+    git clone <seu-repositorio>
+    cd manutencar
+    ```
+
+2.  **Inicie a aplicação com Docker Compose:**
+    ```bash
+    docker-compose up --build
+    ```
+    *Isso irá construir as imagens do backend e frontend e iniciar os containers.*
+
+3.  **Acesse a aplicação:**
+    -   **Frontend (Site):** [http://localhost:8511](http://localhost:8511)
+    -   **Backend (API Docs):** [http://localhost:8090/docs](http://localhost:8090/docs)
+
+## 🔧 Desenvolvimento Local (Sem Docker)
+
+Se preferir rodar localmente sem Docker:
+
+**Backend:**
+```bash
+cd backend # (ou raiz se não houver pasta separada)
+python -m venv venv
+source venv/bin/activate # (Linux/Mac) ou venv\Scripts\activate (Windows)
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8090
+```
+
+**Frontend:**
+```bash
+cd frontend # (ou raiz)
+npm install
+npm run dev -- --port 8511
+```
+
+## 📝 Licença
+
+Este projeto é de uso livre para fins de aprendizado e desenvolvimento pessoal.
