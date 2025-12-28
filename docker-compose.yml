@@ -9,7 +9,6 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
-    restart: unless-stopped
 
   frontend:
     build:
@@ -22,4 +21,3 @@ services:
       - /app/node_modules
     depends_on:
       - backend
-    restart: unless-stopped

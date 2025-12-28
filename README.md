@@ -39,7 +39,7 @@ ManutenCar é uma aplicação web cumpre bem o seu papel para gerenciamento de m
 
 1.  **Clone o repositório:**
     ```bash
-    git clone <seu-repositorio>
+    git clone https://github.com/betoschneider/manutencar.git
     cd manutencar
     ```
 
