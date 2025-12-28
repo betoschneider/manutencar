@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -8,6 +10,7 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
+import os
 
 import models
 from database import SessionLocal, engine
@@ -17,10 +20,7 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ManutenCar API")
 
-origins = [
-    "http://localhost:8511",
-    "http://127.0.0.1:8511",
-]
+origins = ["*"]
 
 # Configuração de CORS para permitir que o frontend acesse o backend
 app.add_middleware(
@@ -30,6 +30,30 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Montar arquivos estáticos
+app.mount("/static", StaticFiles(directory="."), name="static")
+
+# Rota para servir o index.html
+@app.get("/")
+async def read_index():
+    return FileResponse("index.html")
+
+# Rota para servir arquivos .jsx
+@app.get("/{filename}.jsx")
+async def read_jsx(filename: str):
+    file_path = f"{filename}.jsx"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="File not found")
+
+# Rota para servir arquivos .js
+@app.get("/{filename}.js")
+async def read_js(filename: str):
+    file_path = f"{filename}.js"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="File not found")
 
 # Configuração de Segurança (Simplificada para o exemplo)
 SECRET_KEY = "sua_chave_secreta_super_segura"
@@ -156,6 +180,10 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.get("/users")
+def get_users(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.query(models.User).all()
+
 @app.get("/maintenance-types")
 def get_maintenance_types(db: Session = Depends(get_db)):
     return db.query(models.MaintenanceType).all()
@@ -170,6 +198,22 @@ def create_maintenance_type(mt: MaintenanceTypeCreate, user: models.User = Depen
     db.commit()
     db.refresh(db_mt)
     return db_mt
+
+
+@app.delete("/maintenance-types/{mt_id}")
+def delete_maintenance_type(mt_id: int, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    mt = db.query(models.MaintenanceType).filter(models.MaintenanceType.id == mt_id).first()
+    if not mt:
+        raise HTTPException(status_code=404, detail="Tipo de manutenção não encontrado")
+
+    # Verifica se existem logs de manutenção referenciando este tipo
+    linked = db.query(models.MaintenanceLog).filter(models.MaintenanceLog.maintenance_type_id == mt_id).first()
+    if linked:
+        raise HTTPException(status_code=400, detail="Não é possível remover: existem registros de manutenção ligados a este tipo")
+
+    db.delete(mt)
+    db.commit()
+    return {"msg": "Tipo de manutenção removido"}
 
 @app.post("/vehicles")
 def create_vehicle(vehicle: VehicleCreate, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -330,3 +374,13 @@ def get_stats(user: models.User = Depends(get_current_user), db: Session = Depen
             monthly_data[key]["count"] += 1
             
     return sorted(monthly_data.values(), key=lambda x: x["sort_key"])
+
+
+# Fallback para Single Page App: serve index.html para outras rotas GET
+# Isso permite navegação direta em /register, /login, /admin, etc.
+@app.get("/{full_path:path}")
+async def spa(full_path: str):
+    # Não intercepta pedidos por arquivos JS/JSX (já tratados acima)
+    if full_path.endswith('.js') or full_path.endswith('.jsx'):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse("index.html")

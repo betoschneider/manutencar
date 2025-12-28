@@ -22,13 +22,14 @@ ManutenCar é uma aplicação web cumpre bem o seu papel para gerenciamento de m
 -   **Autenticação:** OAuth2 com JWT (Passlib/Jose)
 
 ### Frontend
--   **Framework:** React (Vite)
--   **UI Library:** Material UI (MUI)
+-   **Biblioteca:** React (via CDN)
+-   **Estilização:** Tailwind CSS
 -   **Gráficos:** Recharts
 -   **HTTP Client:** Axios
 
 ### Infraestrutura
 -   **Containerização:** Docker & Docker Compose
+-   **CI/CD:** GitHub Actions
 
 ## ⚙️ Configuração (.env)
 
