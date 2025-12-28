@@ -7,10 +7,14 @@ RUN npm ci
 
 COPY . .
 
-# Build SOMENTE em produção
+# Define ambiente
 ARG NODE_ENV=development
 ENV NODE_ENV=$NODE_ENV
 
+# Evita OOM no Vite build
+ENV NODE_OPTIONS="--max-old-space-size=1024"
+
+# Build SOMENTE em produção
 RUN if [ "$NODE_ENV" = "production" ]; then npm run build; fi
 
 EXPOSE 5173
