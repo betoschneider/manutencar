@@ -54,28 +54,25 @@ ManutenCar é uma aplicação web cumpre bem o seu papel para gerenciamento de m
     *Isso irá construir as imagens do backend e frontend e iniciar os containers.*
 
 4.  **Acesse a aplicação:**
-    -   **Frontend (Site):** [http://localhost:8511](http://localhost:8511)
-    -   **Backend (API Docs):** [http://localhost:8090/docs](http://localhost:8090/docs)
+    -   **Aplicação Completa:** [http://localhost:8090](http://localhost:8090)
+    -   **Documentação da API (Docs):** [http://localhost:8090/docs](http://localhost:8090/docs)
 
 ## 🔧 Desenvolvimento Local (Sem Docker)
 
 Se preferir rodar localmente sem Docker:
 
-**Backend:**
-```bash
-cd backend # (ou raiz se não houver pasta separada)
-python -m venv venv
-source venv/bin/activate # (Linux/Mac) ou venv\Scripts\activate (Windows)
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8090
-```
+1.  **Prepare o ambiente:**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate # (Linux/Mac) ou venv\Scripts\activate (Windows)
+    pip install -r requirements.txt
+    ```
 
-**Frontend:**
-```bash
-cd frontend # (ou raiz)
-npm install
-npm run dev -- --port 8511
-```
+2.  **Inicie o servidor:**
+    ```bash
+    uvicorn main:app --reload --port 8090
+    ```
+    *A aplicação frontend (HTML/JS) é servida automaticamente pelo FastAPI.*
 
 ## 📝 Licença
 
