@@ -3,26 +3,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      network: host
-    network_mode: host
+    ports:
+      - "8090:8090"
     volumes:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
+    restart: unless-stopped
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-      network: host
     ports:
       - "8511:5173"
     volumes:
       - .:/app
-      # O volume abaixo evita que a node_modules do host sobrescreva a do container
-      # e garante que as dependências instaladas no container sejam usadas
       - /app/node_modules
     depends_on:
       - backend
-    dns:
-      - 8.8.8.8
+    restart: unless-stopped
