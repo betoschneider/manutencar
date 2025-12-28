@@ -4,6 +4,9 @@
 
   console.log('main.js loaded');
 
+  // Configura a base URL para todas as chamadas de API
+  axios.defaults.baseURL = '/api';
+
   // Aguardar que todos os componentes sejam carregados
   setTimeout(() => {
     console.log('Checking components...');

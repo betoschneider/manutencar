@@ -23,12 +23,14 @@ ManutenCar é uma aplicação web cumpre bem o seu papel para gerenciamento de m
 
 ### Frontend
 -   **Biblioteca:** React (via CDN)
+-   **Servidor Web:** Nginx (para servir arquivos estáticos e roteamento SPA)
 -   **Estilização:** Tailwind CSS
 -   **Gráficos:** Recharts
 -   **HTTP Client:** Axios
 
 ### Infraestrutura
--   **Containerização:** Docker & Docker Compose
+-   **Containerização:** Docker & Docker Compose (Arquitetura de múltiplos containers)
+-   **Proxy Reverso Interno:** Nginx (dentro do container frontend)
 -   **CI/CD:** GitHub Actions
 
 ## 📦 Como Rodar o Projeto
@@ -44,35 +46,24 @@ ManutenCar é uma aplicação web cumpre bem o seu papel para gerenciamento de m
     cd manutencar
     ```
 
-2.  **Crie o arquivo `.env`:**
-    Crie um arquivo `.env` na raiz do projeto com as configurações desejadas (consulte a seção de Configuração acima).
-
-3.  **Inicie a aplicação com Docker Compose:**
+2.  **Inicie a aplicação com Docker Compose:**
     ```bash
-    docker-compose up --build
+    docker-compose up --build -d
     ```
-    *Isso irá construir as imagens do backend e frontend e iniciar os containers.*
+    *Isso irá construir as imagens do backend (FastAPI) e frontend (Nginx) de forma independente.*
 
-4.  **Acesse a aplicação:**
-    -   **Aplicação Completa:** [http://localhost:8090](http://localhost:8090)
-    -   **Documentação da API (Docs):** [http://localhost:8090/docs](http://localhost:8090/docs)
+3.  **Acesse a aplicação:**
+    -   **Frontend (Interface do Usuário):** [http://localhost:8511](http://localhost:8511)
+    -   **Backend (Documentação da API):** [http://localhost:8090/docs](http://localhost:8090/docs)
 
-## 🔧 Desenvolvimento Local (Sem Docker)
+## 🔧 Estrutura de Produção (Docker)
 
-Se preferir rodar localmente sem Docker:
+O projeto separa as responsabilidades em dois containers principais:
 
-1.  **Prepare o ambiente:**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate # (Linux/Mac) ou venv\Scripts\activate (Windows)
-    pip install -r requirements.txt
-    ```
+-   **Frontend Container (Nginx):** Serve os arquivos `index.html`, `App.js` e outros scripts React. Ele também gerencia o proxy para a API, enviando chamadas de `/api/*` diretamente para o container do backend.
+-   **Backend Container (FastAPI):** Serve exclusivamente a API REST e a documentação interativa.
 
-2.  **Inicie o servidor:**
-    ```bash
-    uvicorn main:app --reload --port 8090
-    ```
-    *A aplicação frontend (HTML/JS) é servida automaticamente pelo FastAPI.*
+Esta arquitetura garante que a aplicação seja resiliente e escalável, seguindo as melhores práticas de ambientes modernos.
 
 ## 📝 Licença
 

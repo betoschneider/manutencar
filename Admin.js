@@ -21,11 +21,11 @@
     const fetchData = async () => {
       try {
         const [typesRes, vehiclesRes] = await Promise.all([
-          axios.get('/maintenance-types', { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get('/vehicles', { headers: { Authorization: `Bearer ${token}` } })
+          axios.get('maintenance-types', { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get('vehicles', { headers: { Authorization: `Bearer ${token}` } })
         ]);
-        setMaintenanceTypes(typesRes.data || []);
-        setVehicles(vehiclesRes.data || []);
+        setMaintenanceTypes(Array.isArray(typesRes.data) ? typesRes.data : []);
+        setVehicles(Array.isArray(vehiclesRes.data) ? vehiclesRes.data : []);
       } catch (error) {
         console.error("Erro ao buscar dados", error);
       }
@@ -53,7 +53,7 @@
     }, []);
 
     useEffect(() => {
-      if (editingVehicleId && vehicles.length > 0) {
+      if (editingVehicleId && Array.isArray(vehicles) && vehicles.length > 0) {
         const v = vehicles.find(x => x.id === editingVehicleId);
         if (v) {
           setEditingVehicleForm({ make: v.make || '', model: v.model || '', year: v.year || 0, current_km: v.current_km || 0, license_plate: v.license_plate || '' });
@@ -96,7 +96,7 @@
           React.createElement('button', {
             onClick: async () => {
               try {
-                const res = await axios.post('/vehicles', newVehicleForm, { headers: { Authorization: `Bearer ${token}` } });
+                const res = await axios.post('vehicles', newVehicleForm, { headers: { Authorization: `Bearer ${token}` } });
                 setVehicles([...vehicles, res.data]);
                 setNewVehicleForm({ make: '', model: '', year: 2024, current_km: 0, license_plate: '' });
                 setShowAddVehicle(false);
@@ -121,7 +121,7 @@
               )
             ),
             React.createElement('tbody', null,
-              vehicles.map(v => (
+              (Array.isArray(vehicles) ? vehicles : []).map(v => (
                 React.createElement('tr', { key: v.id, className: 'border-b dark:border-gray-700' },
                   React.createElement('td', { className: 'px-4 py-3' },
                     React.createElement('div', { className: 'font-bold' }, `${v.make} ${v.model}`),
@@ -141,7 +141,7 @@
                       onClick: async () => {
                         if (!confirm(`Excluir veículo ${v.make} ${v.model}? Isso removerá todo o histórico!`)) return;
                         try {
-                          await axios.delete(`/vehicles/${v.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                          await axios.delete(`vehicles/${v.id}`, { headers: { Authorization: `Bearer ${token}` } });
                           setVehicles(vehicles.filter(x => x.id !== v.id));
                         } catch (err) {
                           alert('Erro ao excluir veículo');
@@ -189,7 +189,7 @@
               React.createElement('button', {
                 onClick: async () => {
                   try {
-                    const res = await axios.put(`/vehicles/${editingVehicleId}`, editingVehicleForm, { headers: { Authorization: `Bearer ${token}` } });
+                    const res = await axios.put(`vehicles/${editingVehicleId}`, editingVehicleForm, { headers: { Authorization: `Bearer ${token}` } });
                     setVehicles(vehicles.map(v => v.id === res.data.id ? res.data : v));
                     setEditingVehicleId(null);
                     alert('Veículo atualizado');
@@ -218,7 +218,7 @@
               onClick: async () => {
                 setLoadingCreate(true);
                 try {
-                  const res = await axios.post('/maintenance-types', newType, { headers: { Authorization: `Bearer ${token}` } });
+                  const res = await axios.post('maintenance-types', newType, { headers: { Authorization: `Bearer ${token}` } });
                   setMaintenanceTypes([...maintenanceTypes, res.data]);
                   setNewType({ name: '', default_interval_km: 10000, default_interval_months: 12, description: '' });
                 } catch (err) {
@@ -233,7 +233,7 @@
         ),
 
         React.createElement('div', { className: 'space-y-2' },
-          maintenanceTypes.map(type =>
+          (Array.isArray(maintenanceTypes) ? maintenanceTypes : []).map(type =>
             React.createElement('div', { key: type.id, className: 'p-4 border dark:border-gray-700 rounded-lg flex justify-between items-center' },
               React.createElement('div', null,
                 React.createElement('div', { className: 'font-medium' }, type.name),
@@ -243,7 +243,7 @@
                 onClick: async () => {
                   if (!confirm(`Remover tipo '${type.name}'?`)) return;
                   try {
-                    await axios.delete(`/maintenance-types/${type.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                    await axios.delete(`maintenance-types/${type.id}`, { headers: { Authorization: `Bearer ${token}` } });
                     setMaintenanceTypes(maintenanceTypes.filter(t => t.id !== type.id));
                   } catch (err) {
                     alert(err?.response?.data?.detail || 'Erro ao remover tipo');

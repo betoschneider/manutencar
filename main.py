@@ -34,26 +34,10 @@ app.add_middleware(
 # Montar arquivos estáticos
 app.mount("/static", StaticFiles(directory="."), name="static")
 
-# Rota para servir o index.html
-@app.get("/")
-async def read_index():
-    return FileResponse("index.html")
-
-# Rota para servir arquivos .jsx
-@app.get("/{filename}.jsx")
-async def read_jsx(filename: str):
-    file_path = f"{filename}.jsx"
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="application/javascript")
-    raise HTTPException(status_code=404, detail="File not found")
-
-# Rota para servir arquivos .js
-@app.get("/{filename}.js")
-async def read_js(filename: str):
-    file_path = f"{filename}.js"
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="application/javascript")
-    raise HTTPException(status_code=404, detail="File not found")
+# Rota de teste
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 
 # Configuração de Segurança (Simplificada para o exemplo)
 SECRET_KEY = "sua_chave_secreta_super_segura"
@@ -387,13 +371,3 @@ def get_stats(user: models.User = Depends(get_current_user), db: Session = Depen
             monthly_data[key]["count"] += 1
             
     return sorted(monthly_data.values(), key=lambda x: x["sort_key"])
-
-
-# Fallback para Single Page App: serve index.html para outras rotas GET
-# Isso permite navegação direta em /register, /login, /admin, etc.
-@app.get("/{full_path:path}")
-async def spa(full_path: str):
-    # Não intercepta pedidos por arquivos JS/JSX (já tratados acima)
-    if full_path.endswith('.js') or full_path.endswith('.jsx'):
-        raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse("index.html")

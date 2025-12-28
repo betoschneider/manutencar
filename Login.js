@@ -15,14 +15,15 @@
             'Entrar na sua conta'
           )
         ),
-        React.createElement('form', { className: 'mt-8 space-y-6', onSubmit: async (e) => {
-          e.preventDefault();
-          setLoading(true);
-          try {
+        React.createElement('form', {
+          className: 'mt-8 space-y-6', onSubmit: async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            try {
               const params = new URLSearchParams();
               params.append('username', email);
               params.append('password', password);
-              const res = await axios.post('/token', params, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+              const res = await axios.post('token', params, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
               const access = res.data && res.data.access_token;
               if (access) {
                 localStorage.setItem('token', access);
@@ -37,7 +38,8 @@
             } finally {
               setLoading(false);
             }
-        } },
+          }
+        },
           React.createElement('div', { className: 'rounded-md shadow-sm -space-y-px' },
             React.createElement('div', null,
               React.createElement('input', {

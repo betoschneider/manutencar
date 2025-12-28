@@ -17,9 +17,9 @@
 
     const fetchData = async () => {
       try {
-        const [vehiclesRes, historyRes] = await Promise.all([
-          axios.get('/vehicles', { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`/vehicles/${id}/history`, { headers: { Authorization: `Bearer ${token}` } })
+        const [historyRes, vehiclesRes] = await Promise.all([
+          axios.get(`vehicles/${id}/history`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get('vehicles', { headers: { Authorization: `Bearer ${token}` } })
         ]);
         const vid = parseInt(id, 10);
         const found = (vehiclesRes.data || []).find(v => v.id === vid);
@@ -47,18 +47,18 @@
         alert('Nenhuma manutenção para exportar');
         return;
       }
-      const headers = ['date_performed','maintenance_type','km_performed','service_cost','product_cost','total','notes'];
+      const headers = ['date_performed', 'maintenance_type', 'km_performed', 'service_cost', 'product_cost', 'total', 'notes'];
       const rows = maintenanceHistory.map(it => {
         const mt = it.maintenance_type || it.maintenance_type_name || '';
         return [
           new Date(it.date_performed).toLocaleDateString('pt-BR'),
           (mt || '').replace(/"/g, '""'),
-        it.km_performed || '',
-        it.service_cost || 0,
-        it.product_cost || 0,
-        ((it.service_cost || 0) + (it.product_cost || 0)),
-        (it.notes || '').replace(/"/g, '""')
-      ].map(v => `"${v}"`).join(',');
+          it.km_performed || '',
+          it.service_cost || 0,
+          it.product_cost || 0,
+          ((it.service_cost || 0) + (it.product_cost || 0)),
+          (it.notes || '').replace(/"/g, '""')
+        ].map(v => `"${v}"`).join(',');
       });
       const csv = [headers.join(','), ...rows].join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
