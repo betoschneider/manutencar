@@ -27,6 +27,7 @@ jobs:
 
             echo "🐳 Atualizando containers..."
             docker-compose down --rmi local
+            export COMPOSE_HTTP_TIMEOUT=300
             docker-compose up --build -d
 
             echo "✅ Deploy concluído com sucesso!"
