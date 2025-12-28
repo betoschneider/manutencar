@@ -30,6 +30,22 @@ ManutenCar é uma aplicação web cumpre bem o seu papel para gerenciamento de m
 ### Infraestrutura
 -   **Containerização:** Docker & Docker Compose
 
+## ⚙️ Configuração (.env)
+
+O projeto utiliza um arquivo `.env` na raiz para definir variáveis de ambiente essenciais para o Docker e o Vite.
+
+**Exemplo de `.env`:**
+
+```env
+ALLOWED_HOSTS=meudominio.com
+
+# Comando de inicialização do Frontend
+# Desenvolvimento (padrão):
+START_COMMAND=npm run dev -- --host
+# Produção (Build + Preview):
+# START_COMMAND=npm run build && npm run preview -- --host --port 5173
+```
+
 ## 📦 Como Rodar o Projeto
 
 ### Pré-requisitos
@@ -43,13 +59,16 @@ ManutenCar é uma aplicação web cumpre bem o seu papel para gerenciamento de m
     cd manutencar
     ```
 
-2.  **Inicie a aplicação com Docker Compose:**
+2.  **Crie o arquivo `.env`:**
+    Crie um arquivo `.env` na raiz do projeto com as configurações desejadas (consulte a seção de Configuração acima).
+
+3.  **Inicie a aplicação com Docker Compose:**
     ```bash
     docker-compose up --build
     ```
     *Isso irá construir as imagens do backend e frontend e iniciar os containers.*
 
-3.  **Acesse a aplicação:**
+4.  **Acesse a aplicação:**
     -   **Frontend (Site):** [http://localhost:8511](http://localhost:8511)
     -   **Backend (API Docs):** [http://localhost:8090/docs](http://localhost:8090/docs)
 

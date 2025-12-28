@@ -9,6 +9,7 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
+    env_file: .env
 
   frontend:
     build:
@@ -21,3 +22,4 @@ services:
       - /app/node_modules
     depends_on:
       - backend
+    env_file: .env
