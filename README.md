@@ -31,22 +31,6 @@ ManutenCar é uma aplicação web cumpre bem o seu papel para gerenciamento de m
 -   **Containerização:** Docker & Docker Compose
 -   **CI/CD:** GitHub Actions
 
-## ⚙️ Configuração (.env)
-
-O projeto utiliza um arquivo `.env` na raiz para definir variáveis de ambiente essenciais para o Docker e o Vite.
-
-**Exemplo de `.env`:**
-
-```env
-ALLOWED_HOSTS=meudominio.com
-
-# Comando de inicialização do Frontend
-# Desenvolvimento (padrão):
-START_COMMAND=npm run dev -- --host
-# Produção (Build + Preview):
-# START_COMMAND=npm run build && npm run preview -- --host --port 5173
-```
-
 ## 📦 Como Rodar o Projeto
 
 ### Pré-requisitos

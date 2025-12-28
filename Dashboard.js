@@ -117,16 +117,12 @@
               React.createElement('div', { className: 'flex gap-3' },
                 React.createElement('button', {
                   onClick: () => navigate(`/vehicle/${vehicle.id}/history`),
-                    className: 'flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-3 py-2 rounded text-sm font-medium transition-colors text-center'
-                  }, 'Ver Histórico'),
-                  React.createElement('button', {
-                    onClick: () => navigate(`/vehicle/${vehicle.id}/maintenance`),
-                    className: 'flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors text-center'
-                  }, 'Inserir Manutenção'),
-                  React.createElement('button', {
-                    onClick: () => navigate(`/admin/vehicle/${vehicle.id}`),
-                    className: 'flex-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-3 py-2 rounded text-sm font-medium transition-colors text-center border border-blue-100 dark:border-blue-800'
-                  }, 'Gerenciar')
+                  className: 'flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white px-3 py-2 rounded text-sm font-medium transition-colors text-center'
+                }, 'Ver Histórico'),
+                React.createElement('button', {
+                  onClick: () => navigate(`/vehicle/${vehicle.id}/maintenance`),
+                  className: 'flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors text-center'
+                }, 'Inserir Manutenção')
               )
             )
           )
@@ -138,7 +134,7 @@
             'Nenhum veículo cadastrado ainda.'
           ),
           React.createElement('button', {
-            onClick: () => navigate('/admin'),
+            onClick: () => navigate('/admin?add=true'),
             className: 'mt-4 text-blue-600 hover:underline font-medium'
           }, 'Adicionar meu primeiro veículo')
         )

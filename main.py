@@ -241,6 +241,19 @@ def update_vehicle(vehicle_id: int, vehicle: VehicleUpdate, user: models.User = 
     db.refresh(db_vehicle)
     return db_vehicle
 
+@app.delete("/vehicles/{vehicle_id}")
+def delete_vehicle(vehicle_id: int, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    db_vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == vehicle_id, models.Vehicle.owner_id == user.id).first()
+    if not db_vehicle:
+        raise HTTPException(status_code=404, detail="Veículo não encontrado")
+    
+    # Deleta logs associados (ou o banco cuidaria se houvesse cascade, mas vamos garantir)
+    db.query(models.MaintenanceLog).filter(models.MaintenanceLog.vehicle_id == vehicle_id).delete()
+    
+    db.delete(db_vehicle)
+    db.commit()
+    return {"msg": "Veículo removido com sucesso"}
+
 @app.get("/vehicles")
 def get_vehicles(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     # Aqui calculamos o status de alerta para cada veículo
