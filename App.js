@@ -95,7 +95,11 @@
                   )
                 )
               ),
-              React.createElement('div', { className: 'container mx-auto mt-8 px-4 flex-grow' }, renderRoute())
+              React.createElement('div', { className: 'container mx-auto mt-8 px-4 flex-grow' }, renderRoute()),
+              React.createElement('footer', { className: 'py-8 border-t dark:border-gray-800 text-center text-gray-500 text-sm bg-white dark:bg-gray-900 mt-8' },
+                '© 2025 ',
+                React.createElement('a', { href: 'https://betoschneider.com', className: 'hover:text-blue-600 transition-colors', target: '_blank', rel: 'noopener noreferrer' }, 'betoschneider.com')
+              )
             );
           })()
         ) : (
@@ -121,6 +125,10 @@
                   React.createElement(RouteComp, { path: '/login', element: !token ? React.createElement(window.Login) : React.createElement(NavigateComp, { to: '/' }) }),
                   React.createElement(RouteComp, { path: '/', element: token ? React.createElement(window.Dashboard) : React.createElement(NavigateComp, { to: '/login' }) })
                 )
+              ),
+              React.createElement('footer', { className: 'py-8 border-t dark:border-gray-800 text-center text-gray-500 text-sm bg-white dark:bg-gray-900 mt-8' },
+                '© 2025 ',
+                React.createElement('a', { href: 'https://betoschneider.com', className: 'hover:text-blue-600 transition-colors', target: '_blank', rel: 'noopener noreferrer' }, 'betoschneider.com')
               )
             )
           )
