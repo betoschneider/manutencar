@@ -125,7 +125,7 @@
                 className: 'px-3 py-2 rounded border dark:bg-gray-800 dark:border-gray-600 dark:text-white'
               },
                 React.createElement('option', { value: '' }, 'Selecione...'),
-                maintenanceTypes.map(t => React.createElement('option', { key: t.id, value: t.id }, t.name))
+                (Array.isArray(maintenanceTypes) ? maintenanceTypes : []).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })).map(t => React.createElement('option', { key: t.id, value: t.id }, t.name))
               )
             ),
             React.createElement('div', { className: 'flex flex-col' },

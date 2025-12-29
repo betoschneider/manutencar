@@ -233,7 +233,7 @@
         ),
 
         React.createElement('div', { className: 'space-y-2' },
-          (Array.isArray(maintenanceTypes) ? maintenanceTypes : []).map(type =>
+          (Array.isArray(maintenanceTypes) ? maintenanceTypes : []).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })).map(type =>
             React.createElement('div', { key: type.id, className: 'p-4 border dark:border-gray-700 rounded-lg flex justify-between items-center' },
               React.createElement('div', null,
                 React.createElement('div', { className: 'font-medium' }, type.name),
