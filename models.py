@@ -25,10 +25,13 @@ class Vehicle(Base):
 class MaintenanceType(Base):
     __tablename__ = "maintenance_types"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True)
+    name = Column(String)
     default_interval_km = Column(Integer) # Ex: 10000
     default_interval_months = Column(Integer) # Ex: 12
     description = Column(String, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Null for system defaults? No, user wants personal.
+    
+    user = relationship("User")
 
 class MaintenanceLog(Base):
     __tablename__ = "maintenance_logs"

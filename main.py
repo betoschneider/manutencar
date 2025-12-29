@@ -109,32 +109,28 @@ def send_email_alert(email: str, message: str):
     # Simulação de envio de email
     print(f"--- EMAIL ENVIADO PARA {email} ---\nConteúdo: {message}\n-----------------------------------")
 
-# --- Inicialização (Seed) ---
-@app.on_event("startup")
-def seed_maintenance_types():
-    db = SessionLocal()
-    if db.query(models.MaintenanceType).count() == 0:
-        defaults = [
-            {"name": "Troca de Óleo do Motor", "km": 10000, "months": 12},
-            {"name": "Filtro de Óleo", "km": 10000, "months": 12},
-            {"name": "Filtro de Ar", "km": 20000, "months": 24},
-            {"name": "Filtro de Combustível", "km": 20000, "months": 24},
-            {"name": "Pastilhas de Freio", "km": 30000, "months": 36}, # Varia muito, mas é uma base
-            {"name": "Fluido de Freio", "km": 40000, "months": 24},
-            {"name": "Líquido de Arrefecimento", "km": 40000, "months": 24},
-            {"name": "Óleo de Câmbio (Manual)", "km": 100000, "months": 60},
-            {"name": "Correia Dentada", "km": 60000, "months": 48},
-            {"name": "Velas de Ignição", "km": 50000, "months": 48},
-        ]
-        for item in defaults:
-            mt = models.MaintenanceType(
-                name=item["name"], 
-                default_interval_km=item["km"], 
-                default_interval_months=item["months"]
-            )
-            db.add(mt)
-        db.commit()
-    db.close()
+def seed_user_maintenance_types(db: Session, user_id: int):
+    defaults = [
+        {"name": "Troca de Óleo do Motor", "km": 10000, "months": 12},
+        {"name": "Filtro de Óleo", "km": 10000, "months": 12},
+        {"name": "Filtro de Ar", "km": 20000, "months": 24},
+        {"name": "Filtro de Combustível", "km": 20000, "months": 24},
+        {"name": "Pastilhas de Freio", "km": 30000, "months": 36},
+        {"name": "Fluido de Freio", "km": 40000, "months": 24},
+        {"name": "Líquido de Arrefecimento", "km": 40000, "months": 24},
+        {"name": "Óleo de Câmbio (Manual)", "km": 100000, "months": 60},
+        {"name": "Correia Dentada", "km": 60000, "months": 48},
+        {"name": "Velas de Ignição", "km": 50000, "months": 48},
+    ]
+    for item in defaults:
+        mt = models.MaintenanceType(
+            name=item["name"], 
+            default_interval_km=item["km"], 
+            default_interval_months=item["months"],
+            user_id=user_id
+        )
+        db.add(mt)
+    db.commit()
 
 # --- Rotas ---
 
@@ -146,6 +142,10 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
+        
+        # Seed personal maintenance types
+        seed_user_maintenance_types(db, db_user.id)
+        
         return {"msg": "Usuário criado"}
     except IntegrityError:
         db.rollback()
@@ -169,15 +169,18 @@ def get_users(user: models.User = Depends(get_current_user), db: Session = Depen
     return db.query(models.User).all()
 
 @app.get("/maintenance-types")
-def get_maintenance_types(db: Session = Depends(get_db)):
-    return db.query(models.MaintenanceType).all()
+def get_maintenance_types(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.query(models.MaintenanceType).filter(models.MaintenanceType.user_id == user.id).order_by(models.MaintenanceType.name).all()
 
 @app.post("/maintenance-types")
 def create_maintenance_type(mt: MaintenanceTypeCreate, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    existing = db.query(models.MaintenanceType).filter(models.MaintenanceType.name == mt.name).first()
+    existing = db.query(models.MaintenanceType).filter(
+        models.MaintenanceType.name == mt.name,
+        models.MaintenanceType.user_id == user.id
+    ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Tipo de manutenção já existe")
-    db_mt = models.MaintenanceType(**mt.dict())
+        raise HTTPException(status_code=400, detail="Tipo de manutenção já existe para este usuário")
+    db_mt = models.MaintenanceType(**mt.dict(), user_id=user.id)
     db.add(db_mt)
     db.commit()
     db.refresh(db_mt)
@@ -186,7 +189,10 @@ def create_maintenance_type(mt: MaintenanceTypeCreate, user: models.User = Depen
 
 @app.delete("/maintenance-types/{mt_id}")
 def delete_maintenance_type(mt_id: int, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    mt = db.query(models.MaintenanceType).filter(models.MaintenanceType.id == mt_id).first()
+    mt = db.query(models.MaintenanceType).filter(
+        models.MaintenanceType.id == mt_id,
+        models.MaintenanceType.user_id == user.id
+    ).first()
     if not mt:
         raise HTTPException(status_code=404, detail="Tipo de manutenção não encontrado")
 
@@ -246,8 +252,8 @@ def get_vehicles(user: models.User = Depends(get_current_user), db: Session = De
     
     for v in vehicles:
         alerts = []
-        # Verifica cada tipo de manutenção
-        m_types = db.query(models.MaintenanceType).all()
+        # Verifica cada tipo de manutenção DO USUÁRIO
+        m_types = db.query(models.MaintenanceType).filter(models.MaintenanceType.user_id == user.id).all()
         for mt in m_types:
             # Pega a última manutenção deste tipo para este carro
             last_log = db.query(models.MaintenanceLog)\
