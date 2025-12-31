@@ -33,7 +33,8 @@
               }
             } catch (err) {
               console.error('Login error:', err);
-              const msg = err?.response?.data?.detail || 'Credenciais inválidas';
+              let msg = err?.response?.data?.detail || 'Credenciais inválidas';
+              if (typeof msg === 'object') msg = JSON.stringify(msg);
               setError(msg);
             } finally {
               setLoading(false);

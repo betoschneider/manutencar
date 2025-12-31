@@ -128,7 +128,7 @@
                     React.createElement('div', { className: 'text-xs text-gray-500' }, v.year)
                   ),
                   React.createElement('td', { className: 'px-4 py-3 font-mono' }, v.license_plate),
-                  React.createElement('td', { className: 'px-4 py-3' }, `${v.current_km.toLocaleString()} km`),
+                  React.createElement('td', { className: 'px-4 py-3' }, `${(v.current_km || 0).toLocaleString()} km`),
                   React.createElement('td', { className: 'px-4 py-3 flex gap-2' },
                     React.createElement('button', {
                       onClick: () => {

@@ -98,7 +98,7 @@
           ),
           React.createElement('div', null,
             React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'KM Atual: '),
-            React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `${vehicle.current_km.toLocaleString()} km`)
+            React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `${(vehicle.current_km || 0).toLocaleString()} km`)
           ),
           React.createElement('div', null,
             React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Modelo: '),

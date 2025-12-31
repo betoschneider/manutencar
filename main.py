@@ -265,13 +265,17 @@ def get_vehicles(user: models.User = Depends(get_current_user), db: Session = De
             is_due = False
             
             if last_log:
-                next_km = last_log.km_performed + mt.default_interval_km
-                next_date = last_log.date_performed + timedelta(days=mt.default_interval_months * 30)
+                next_km = (last_log.km_performed or 0) + (mt.default_interval_km or 0)
+                # Garantir que temos um intervalo de meses válido
+                interval_months = mt.default_interval_months if mt.default_interval_months is not None else 12
+                next_date = last_log.date_performed + timedelta(days=interval_months * 30)
                 
+                # Forçar comparação com datetime naive (SQLite armazena sem fuso)
+                now = datetime.utcnow()
                 if v.current_km >= next_km:
                     is_due = True
                     status_msg = f"Vencido por KM (Próx: {next_km}km)"
-                elif datetime.utcnow() >= next_date:
+                elif now >= next_date:
                     is_due = True
                     status_msg = f"Vencido por Tempo (Próx: {next_date.date()})"
             else:
@@ -282,7 +286,12 @@ def get_vehicles(user: models.User = Depends(get_current_user), db: Session = De
             if is_due:
                 alerts.append({"type": mt.name, "msg": status_msg})
         
-        total_cost = sum((l.service_cost or 0) + (l.product_cost or 0) for l in v.maintenance_logs)
+        # Garantir que total_cost seja calculado de forma segura
+        total_cost = 0.0
+        for l in v.maintenance_logs:
+            s_cost = l.service_cost if l.service_cost is not None else 0.0
+            p_cost = l.product_cost if l.product_cost is not None else 0.0
+            total_cost += (s_cost + p_cost)
 
         results.append({
             "id": v.id,
@@ -319,7 +328,8 @@ def add_maintenance(
     # 3. Verifica se precisa enviar email de alerta sobre PRÓXIMAS manutenções (Lógica simplificada)
     # Exemplo: Se trocou óleo agora, avisa quando será a próxima
     mt = db.query(models.MaintenanceType).filter(models.MaintenanceType.id == log.maintenance_type_id).first()
-    next_km = log.km_performed + mt.default_interval_km
+    interval_km = mt.default_interval_km if mt and mt.default_interval_km is not None else 10000
+    next_km = log.km_performed + interval_km
     
     msg = f"Manutenção '{mt.name}' registrada para {vehicle.model}. Próxima troca prevista em {next_km}km."
     background_tasks.add_task(send_email_alert, user.email, msg)
@@ -339,9 +349,10 @@ def get_vehicle_history(vehicle_id: int, user: models.User = Depends(get_current
         
     history = []
     for log in logs:
+        m_type_name = log.maintenance_type.name if log.maintenance_type else "Tipo Desconhecido"
         history.append({
             "id": log.id,
-            "maintenance_type": log.maintenance_type.name,
+            "maintenance_type": m_type_name,
             "date_performed": log.date_performed,
             "km_performed": log.km_performed,
             "notes": log.notes,
@@ -368,6 +379,8 @@ def get_stats(user: models.User = Depends(get_current_user), db: Session = Depen
         monthly_data[key] = {"month": d.strftime("%m/%Y"), "service_cost": 0, "product_cost": 0, "count": 0, "sort_key": key}
         
     for log in logs:
+        if not log.date_performed:
+            continue
         key = log.date_performed.strftime("%Y-%m")
         if key in monthly_data:
             s_cost = log.service_cost or 0

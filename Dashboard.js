@@ -93,6 +93,8 @@
               return null;
             };
 
+            if (!BC || !RC || !B || !XA || !YA || !CG || !TT || !LG) return React.createElement('p', { className: 'text-center py-10 text-red-500' }, 'Alguns componentes de gráfico não estão disponíveis.');
+
             return React.createElement(RC, { width: '100%', height: '100%' },
               React.createElement(BC, { data: chartData, margin: { top: 10, right: 10, left: 0, bottom: 0 } },
                 React.createElement(CG, { strokeDasharray: '3 3', stroke: '#374151', vertical: false }),
@@ -132,11 +134,11 @@
                 ),
                 React.createElement('p', { className: 'text-gray-600 dark:text-gray-400 flex justify-between' },
                   React.createElement('span', null, 'KM Atual:'),
-                  React.createElement('span', { className: 'font-bold' }, `${vehicle.current_km.toLocaleString()} km`)
+                  React.createElement('span', { className: 'font-bold' }, `${(vehicle.current_km || 0).toLocaleString()} km`)
                 ),
                 React.createElement('p', { className: 'text-gray-600 dark:text-gray-400 flex justify-between' },
                   React.createElement('span', null, 'Gasto Total:'),
-                  React.createElement('span', { className: 'font-bold text-green-600 dark:text-green-400' }, `R$ ${vehicle.total_maintenance_cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+                  React.createElement('span', { className: 'font-bold text-green-600 dark:text-green-400' }, `R$ ${(vehicle.total_maintenance_cost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
                 )
               ),
 
