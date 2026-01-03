@@ -50,10 +50,12 @@
       setToken(newToken);
       // Buscar informações do usuário
       try {
+        console.log('Login: fetching user...');
         const res = await axios.get('me', { headers: { Authorization: `Bearer ${newToken}` } });
+        console.log('Login: user fetched:', res.data);
         setUser(res.data);
       } catch (error) {
-        console.error('Erro ao buscar usuário:', error);
+        console.error('Erro ao buscar usuário no login:', error);
       }
     };
 
@@ -66,8 +68,12 @@
     // Buscar user se token existe mas user não
     useEffect(() => {
       if (token && !user) {
+        console.log('Fetching user info...');
         axios.get('me', { headers: { Authorization: `Bearer ${token}` } })
-          .then(res => setUser(res.data))
+          .then(res => {
+            console.log('User fetched:', res.data);
+            setUser(res.data);
+          })
           .catch(error => {
             console.error('Erro ao buscar usuário:', error);
             // Se erro 401, logout
