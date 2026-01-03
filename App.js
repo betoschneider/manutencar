@@ -67,6 +67,7 @@
 
     // Buscar user se token existe mas user não
     useEffect(() => {
+      console.log('useEffect: token =', !!token, 'user =', !!user);
       if (token && !user) {
         console.log('Fetching user info...');
         axios.get('me', { headers: { Authorization: `Bearer ${token}` } })
