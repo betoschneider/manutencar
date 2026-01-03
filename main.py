@@ -103,7 +103,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(models.User).filter(models.User.email == email).first()
     if user is None:
         raise HTTPException(status_code=401, detail="Usuário não encontrado")
-    print(f"DEBUG: Authenticated user {user.email} (id={user.id})")
     return user
 
 def send_email_alert(email: str, message: str):
@@ -247,10 +246,8 @@ def delete_vehicle(vehicle_id: int, user: models.User = Depends(get_current_user
 
 @app.get("/vehicles")
 def get_vehicles(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    print(f"DEBUG: User {user.email} (id={user.id}) requesting vehicles")
     # Aqui calculamos o status de alerta para cada veículo
     vehicles = db.query(models.Vehicle).filter(models.Vehicle.owner_id == user.id).all()
-    print(f"DEBUG: Found {len(vehicles)} vehicles for user {user.id}")
     results = []
     
     for v in vehicles:
@@ -305,7 +302,6 @@ def get_vehicles(user: models.User = Depends(get_current_user), db: Session = De
             "total_maintenance_cost": total_cost,
             "alerts": alerts
         })
-    print(f"DEBUG: Returning {len(results)} vehicle results")
     return results
 
 @app.post("/vehicles/{vehicle_id}/maintenance")
