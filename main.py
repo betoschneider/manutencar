@@ -83,8 +83,14 @@ class MaintenanceLogCreate(BaseModel):
     product_cost: float = 0.0
 
 class UserCreate(BaseModel):
+    name: Optional[str] = None
     email: str
     password: str
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
 
 # --- Funções Auxiliares ---
 def create_access_token(data: dict):
@@ -138,7 +144,7 @@ def seed_user_maintenance_types(db: Session, user_id: int):
 def register(user: UserCreate, db: Session = Depends(get_db)):
     try:
         hashed_pw = pwd_context.hash(user.password)
-        db_user = models.User(email=user.email, hashed_password=hashed_pw)
+        db_user = models.User(name=user.name, email=user.email, hashed_password=hashed_pw)
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
@@ -163,6 +169,26 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/me")
+def get_current_user_info(current_user: models.User = Depends(get_current_user)):
+    return {"id": current_user.id, "name": current_user.name, "email": current_user.email}
+
+@app.put("/me")
+def update_current_user(user_update: UserUpdate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user_update.name is not None:
+        current_user.name = user_update.name
+    if user_update.email is not None:
+        # Check if email is already taken
+        existing = db.query(models.User).filter(models.User.email == user_update.email, models.User.id != current_user.id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Este e-mail já está em uso.")
+        current_user.email = user_update.email
+    if user_update.password is not None:
+        current_user.hashed_password = pwd_context.hash(user_update.password)
+    db.commit()
+    db.refresh(current_user)
+    return {"id": current_user.id, "name": current_user.name, "email": current_user.email}
 
 @app.get("/users")
 def get_users(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):

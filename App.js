@@ -29,6 +29,7 @@
     // Inicializa tema baseado no localStorage ou preferência do sistema
     const [mode, setMode] = useState(() => localStorage.getItem('theme') || 'dark');
     const [token, setToken] = useState(localStorage.getItem('token'));
+    const [user, setUser] = useState(null);
 
     // Efeito para aplicar a classe 'dark' no HTML
     useEffect(() => {
@@ -44,17 +45,40 @@
       setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
     };
 
-    const login = (newToken) => {
+    const login = async (newToken) => {
       localStorage.setItem('token', newToken);
       setToken(newToken);
+      // Buscar informações do usuário
+      try {
+        const res = await axios.get('me', { headers: { Authorization: `Bearer ${newToken}` } });
+        setUser(res.data);
+      } catch (error) {
+        console.error('Erro ao buscar usuário:', error);
+      }
     };
 
     const logout = () => {
       localStorage.removeItem('token');
       setToken(null);
+      setUser(null);
     };
 
-    return React.createElement(window.AuthContext.Provider, { value: { token, login, logout } },
+    // Buscar user se token existe mas user não
+    useEffect(() => {
+      if (token && !user) {
+        axios.get('me', { headers: { Authorization: `Bearer ${token}` } })
+          .then(res => setUser(res.data))
+          .catch(error => {
+            console.error('Erro ao buscar usuário:', error);
+            // Se erro 401, logout
+            if (error.response && error.response.status === 401) {
+              logout();
+            }
+          });
+      }
+    }, [token, user]);
+
+    return React.createElement(window.AuthContext.Provider, { value: { token, user, login, logout } },
       React.createElement('div', { className: 'min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300' },
         useFallbackRouter ? (
           // Fallback: roteador simples baseado em pathname (evita depender do react-router UMD)
@@ -73,6 +97,7 @@
               const SafeComp = (comp) => comp ? React.createElement(comp) : React.createElement('div', { className: 'p-8 text-center text-red-600' }, 'Erro: Componente não carregado. Verifique se o arquivo .js foi incluído no index.html.');
 
               if (routeMatch('/admin').ok) return token ? SafeComp(window.Admin) : SafeComp(window.Login);
+              if (routeMatch('/profile').ok) return token ? SafeComp(window.Profile) : SafeComp(window.Login);
               if (routeMatch('/register').ok) return !token ? SafeComp(window.Register) : SafeComp(window.Dashboard);
               if (routeMatch('/login').ok) return !token ? SafeComp(window.Login) : SafeComp(window.Dashboard);
               if (routeMatch('/vehicle/:id/history').ok) return token ? SafeComp(window.History) : SafeComp(window.Login);
@@ -90,6 +115,14 @@
                         onClick: toggleColorMode,
                         className: 'p-2 rounded-full hover:bg-blue-700 focus:outline-none'
                       }, React.createElement('span', { className: 'material-icons align-middle' }, mode === 'dark' ? 'brightness_7' : 'brightness_4')),
+                      token && user && React.createElement('div', { className: 'text-right mr-4' },
+                        React.createElement('div', { className: 'text-sm font-medium' }, user.name || user.email),
+                        React.createElement('div', { className: 'text-xs opacity-75' }, user.email)
+                      ),
+                      token && React.createElement('button', {
+                        onClick: () => window.location.href = '/profile',
+                        className: 'px-3 py-2 hover:bg-blue-700 rounded font-medium text-sm'
+                      }, 'Perfil'),
                       token && React.createElement('button', { onClick: logout, className: 'px-4 py-2 hover:bg-blue-700 rounded font-medium' }, 'Sair')
                     )
                   )
