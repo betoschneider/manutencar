@@ -24,7 +24,8 @@
       date_performed: new Date().toISOString().slice(0, 10),
       service_cost: 0,
       product_cost: 0,
-      notes: ''
+      notes: '',
+      category: 'preventiva'
     });
 
     const fetchData = async () => {
@@ -72,7 +73,8 @@
           date_performed: new Date(form.date_performed).toISOString(),
           notes: form.notes,
           service_cost: parseFloat(form.service_cost || 0),
-          product_cost: parseFloat(form.product_cost || 0)
+          product_cost: parseFloat(form.product_cost || 0),
+          category: form.category
         };
         await axios.post(`/vehicles/${id}/maintenance`, payload, { headers: { Authorization: `Bearer ${token}` } });
 
@@ -85,7 +87,8 @@
           date_performed: new Date().toISOString().slice(0, 10),
           service_cost: 0,
           product_cost: 0,
-          notes: ''
+          notes: '',
+          category: 'preventiva'
         });
         await fetchData();
 
@@ -116,7 +119,7 @@
         // Formulário
         React.createElement('h3', { className: 'text-xl font-semibold text-gray-900 dark:text-white mb-4' }, 'Registrar Serviço'),
         React.createElement('div', { className: 'mb-8 p-4 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600' },
-          React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-4' },
+          React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4 mb-4' },
             React.createElement('div', { className: 'flex flex-col' },
               React.createElement('label', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300 mb-1' }, 'Tipo de Manutenção'),
               React.createElement('select', {
@@ -126,6 +129,18 @@
               },
                 React.createElement('option', { value: '' }, 'Selecione...'),
                 (Array.isArray(maintenanceTypes) ? maintenanceTypes : []).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })).map(t => React.createElement('option', { key: t.id, value: t.id }, t.name))
+              )
+            ),
+            React.createElement('div', { className: 'flex flex-col' },
+              React.createElement('label', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300 mb-1' }, 'Categoria'),
+              React.createElement('select', {
+                value: form.category,
+                onChange: (e) => setForm({ ...form, category: e.target.value }),
+                className: 'px-3 py-2 rounded border dark:bg-gray-800 dark:border-gray-600 dark:text-white'
+              },
+                React.createElement('option', { value: 'preventiva' }, 'Preventiva'),
+                React.createElement('option', { value: 'desgaste' }, 'Desgaste'),
+                React.createElement('option', { value: 'corretiva' }, 'Corretiva')
               )
             ),
             React.createElement('div', { className: 'flex flex-col' },
@@ -183,7 +198,6 @@
             }, 'Salvar Manutenção')
           )
         ),
-
         // Lista das últimas 10
         React.createElement('h3', { className: 'text-xl font-semibold text-gray-900 dark:text-white mb-4' }, 'Últimas 10 Manutenções'),
         lastLogs.length === 0
