@@ -44,6 +44,7 @@ class MaintenanceLog(Base):
     notes = Column(String, nullable=True)
     service_cost = Column(Float, default=0.0)
     product_cost = Column(Float, default=0.0)
+    category = Column(String, nullable=False, default='preventiva')  # preventiva, desgaste, corretiva
     
     vehicle = relationship("Vehicle", back_populates="maintenance_logs")
     maintenance_type = relationship("MaintenanceType")

@@ -14,17 +14,101 @@
     const navigate = useNavigate ? useNavigate() : (path => { window.location.href = path; });
     const [vehicle, setVehicle] = useState(null);
     const [maintenanceHistory, setMaintenanceHistory] = useState([]);
+    const [analysis, setAnalysis] = useState({});
 
     const fetchData = async () => {
       try {
-        const [historyRes, vehiclesRes] = await Promise.all([
+        const [historyRes, vehiclesRes, typesRes] = await Promise.all([
           axios.get(`vehicles/${id}/history`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get('vehicles', { headers: { Authorization: `Bearer ${token}` } })
+          axios.get('vehicles', { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get('maintenance-types', { headers: { Authorization: `Bearer ${token}` } })
         ]);
         const vid = parseInt(id, 10);
         const found = (vehiclesRes.data || []).find(v => v.id === vid);
         setVehicle(found || null);
-        setMaintenanceHistory(historyRes.data || []);
+        const history = historyRes.data || [];
+        const maintenanceTypes = typesRes.data || [];
+        setMaintenanceHistory(history);
+
+        // Calcular análises
+        const now = new Date();
+        const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+        const last12MonthsLogs = history.filter(log => new Date(log.date_performed) >= oneYearAgo);
+
+        // KM rodados nos últimos 12 meses
+        let kmDriven = 0;
+        if (last12MonthsLogs.length > 0) {
+          const sortedLogs = last12MonthsLogs.sort((a, b) => a.km_performed - b.km_performed);
+          kmDriven = sortedLogs[sortedLogs.length - 1].km_performed - sortedLogs[0].km_performed;
+        }
+
+        // Média mensal
+        const monthlyKm = kmDriven / 12;
+
+        // Custos por categoria
+        const costsByCategory = { preventiva: 0, desgaste: 0, corretiva: 0 };
+        last12MonthsLogs.forEach(log => {
+          const total = (log.service_cost || 0) + (log.product_cost || 0);
+          costsByCategory[log.category] = (costsByCategory[log.category] || 0) + total;
+        });
+
+        // Estimativas de custos médios
+        const avgCosts = {};
+        ['preventiva', 'desgaste', 'corretiva'].forEach(cat => {
+          const catLogs = last12MonthsLogs.filter(log => log.category === cat);
+          if (catLogs.length > 0) {
+            const totalCost = catLogs.reduce((sum, log) => sum + (log.service_cost || 0) + (log.product_cost || 0), 0);
+            avgCosts[cat] = totalCost / catLogs.length;
+          } else {
+            avgCosts[cat] = 0;
+          }
+        });
+
+        // Projeção futura usando intervalos reais
+        const futureProjections = [];
+        maintenanceTypes.forEach(mt => {
+          const lastLog = history.filter(log => log.maintenance_type === mt.name).sort((a, b) => new Date(b.date_performed) - new Date(a.date_performed))[0];
+          if (lastLog) {
+            const nextKm = lastLog.km_performed + (mt.default_interval_km || 10000);
+            const nextDate = new Date(lastLog.date_performed);
+            nextDate.setMonth(nextDate.getMonth() + (mt.default_interval_months || 12));
+            
+            futureProjections.push({
+              type: mt.name,
+              nextKm,
+              nextDate: nextDate.toISOString().split('T')[0],
+              estimatedCost: avgCosts[lastLog.category] || 0
+            });
+          }
+        });
+
+        // Projeção mensal dos próximos 12 meses
+        const monthlyProjection = [];
+        for (let i = 0; i < 12; i++) {
+          const monthDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+          const monthKey = monthDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+          const dueMaintenances = futureProjections.filter(proj => {
+            const projDate = new Date(proj.nextDate);
+            return projDate.getFullYear() === monthDate.getFullYear() && projDate.getMonth() === monthDate.getMonth();
+          });
+          const totalCost = dueMaintenances.reduce((sum, m) => sum + m.estimatedCost, 0);
+          
+          monthlyProjection.push({
+            month: monthKey,
+            maintenances: dueMaintenances,
+            totalCost
+          });
+        }
+
+        setAnalysis({
+          kmDriven,
+          monthlyKm,
+          costsByCategory,
+          avgCosts,
+          futureProjections,
+          monthlyProjection,
+          totalSpent: Object.values(costsByCategory).reduce((a, b) => a + b, 0)
+        });
       } catch (error) {
         console.error("Erro ao buscar dados", error);
       }
@@ -47,12 +131,13 @@
         alert('Nenhuma manutenção para exportar');
         return;
       }
-      const headers = ['date_performed', 'maintenance_type', 'km_performed', 'service_cost', 'product_cost', 'total', 'notes'];
+      const headers = ['date_performed', 'maintenance_type', 'category', 'km_performed', 'service_cost', 'product_cost', 'total', 'notes'];
       const rows = maintenanceHistory.map(it => {
         const mt = it.maintenance_type || it.maintenance_type_name || '';
         return [
           new Date(it.date_performed).toLocaleDateString('pt-BR'),
           (mt || '').replace(/"/g, '""'),
+          it.category || '',
           it.km_performed || '',
           it.service_cost || 0,
           it.product_cost || 0,
@@ -109,45 +194,196 @@
         React.createElement('h3', { className: 'text-xl font-semibold text-gray-900 dark:text-white mb-4' }, 'Histórico de Manutenções'),
         maintenanceHistory.length === 0
           ? React.createElement('p', { className: 'text-gray-600 dark:text-gray-400' }, 'Nenhuma manutenção registrada ainda.')
-          : React.createElement('div', { className: 'space-y-4' },
-            maintenanceHistory.map(item =>
-              React.createElement('div', {
-                key: item.id,
-                className: 'border border-gray-200 dark:border-gray-700 rounded-lg p-4'
-              },
-                React.createElement('div', { className: 'flex justify-between items-start mb-2' },
-                  React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white' }, item.maintenance_type || item.maintenance_type_name),
-                  React.createElement('span', { className: 'text-sm text-gray-600 dark:text-gray-400' },
-                    new Date(item.date_performed).toLocaleDateString('pt-BR')
-                  )
-                ),
-                React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4 text-sm' },
-                  React.createElement('div', null,
-                    React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'KM: '),
-                    React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.km_performed)
-                  ),
-                  React.createElement('div', null,
-                    React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Serviço: '),
-                    React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.service_cost || 0}`)
-                  ),
-                  React.createElement('div', null,
-                    React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Peças: '),
-                    React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.product_cost || 0}`)
-                  ),
-                  React.createElement('div', null,
-                    React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Total: '),
-                    React.createElement('span', { className: 'text-green-600 dark:text-green-400 font-semibold' },
-                      `R$ ${(item.service_cost || 0) + (item.product_cost || 0)}`
+          : React.createElement('div', { className: 'space-y-6' },
+            // Organizar por categorias
+            ['preventiva', 'desgaste', 'corretiva'].map(category => {
+              const categoryLogs = maintenanceHistory.filter(log => log.category === category);
+              const categoryNames = { preventiva: 'Preventiva', desgaste: 'Desgaste', corretiva: 'Corretiva' };
+              return categoryLogs.length > 0 ? React.createElement('div', { key: category },
+                React.createElement('h4', { className: 'text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3' }, categoryNames[category]),
+                React.createElement('div', { className: 'space-y-3' },
+                  categoryLogs.map(item =>
+                    React.createElement('div', {
+                      key: item.id,
+                      className: 'border border-gray-200 dark:border-gray-700 rounded-lg p-4'
+                    },
+                      React.createElement('div', { className: 'flex justify-between items-start mb-2' },
+                        React.createElement('h5', { className: 'text-lg font-semibold text-gray-900 dark:text-white' }, item.maintenance_type || item.maintenance_type_name),
+                        React.createElement('span', { className: 'text-sm text-gray-600 dark:text-gray-400' },
+                          new Date(item.date_performed).toLocaleDateString('pt-BR')
+                        )
+                      ),
+                      React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4 text-sm' },
+                        React.createElement('div', null,
+                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'KM: '),
+                          React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.km_performed)
+                        ),
+                        React.createElement('div', null,
+                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Serviço: '),
+                          React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.service_cost || 0}`)
+                        ),
+                        React.createElement('div', null,
+                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Peças: '),
+                          React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.product_cost || 0}`)
+                        ),
+                        React.createElement('div', null,
+                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Total: '),
+                          React.createElement('span', { 
+                            className: `font-semibold ${(item.service_cost || 0) + (item.product_cost || 0) > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`
+                          },
+                            `R$ ${(item.service_cost || 0) + (item.product_cost || 0)}`
+                          )
+                        )
+                      ),
+                      item.notes && React.createElement('div', { className: 'mt-2' },
+                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Observações: '),
+                        React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.notes)
+                      )
                     )
                   )
+                )
+              ) : null;
+            })
+          ),
+
+        // Seção de Análises
+        React.createElement('h3', { className: 'text-xl font-semibold text-gray-900 dark:text-white mb-4' }, 'Análises e Projeções'),
+        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
+          // Estatísticas dos últimos 12 meses
+          React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6' },
+            React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Últimos 12 Meses'),
+            React.createElement('div', { className: 'space-y-3' },
+              React.createElement('div', { className: 'flex justify-between' },
+                React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'KM Rodados:'),
+                React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `${(analysis.kmDriven || 0).toLocaleString()} km`)
+              ),
+              React.createElement('div', { className: 'flex justify-between' },
+                React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Média Mensal:'),
+                React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `${(analysis.monthlyKm || 0).toFixed(0)} km/mês`)
+              ),
+              React.createElement('div', { className: 'flex justify-between' },
+                React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Total Gasto:'),
+                React.createElement('span', { className: 'font-semibold text-green-600 dark:text-green-400' }, `R$ ${(analysis.totalSpent || 0).toFixed(2)}`)
+              )
+            ),
+            React.createElement('h5', { className: 'text-md font-semibold text-gray-900 dark:text-white mt-4 mb-2' }, 'Gastos por Categoria'),
+            React.createElement('div', { className: 'space-y-2' },
+              ['preventiva', 'desgaste', 'corretiva'].map(cat => {
+                const names = { preventiva: 'Preventiva', desgaste: 'Desgaste', corretiva: 'Corretiva' };
+                return React.createElement('div', { key: cat, className: 'flex justify-between' },
+                  React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, names[cat] + ':'),
+                  React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `R$ ${(analysis.costsByCategory?.[cat] || 0).toFixed(2)}`)
+                );
+              })
+            )
+          ),
+
+          // Custos Médios
+          React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6' },
+            React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Custos Médios por Manutenção'),
+            React.createElement('div', { className: 'space-y-3' },
+              ['preventiva', 'desgaste', 'corretiva'].map(cat => {
+                const names = { preventiva: 'Preventiva', desgaste: 'Desgaste', corretiva: 'Corretiva' };
+                return React.createElement('div', { key: cat, className: 'flex justify-between' },
+                  React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, names[cat] + ':'),
+                  React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `R$ ${(analysis.avgCosts?.[cat] || 0).toFixed(2)}`)
+                );
+              })
+            )
+          )
+        ),
+
+        // Projeções Futuras
+        React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6' },
+          React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Próximas Manutenções Recomendadas'),
+          (analysis.futureProjections || []).length === 0
+            ? React.createElement('p', { className: 'text-gray-600 dark:text-gray-400' }, 'Nenhuma projeção disponível.')
+            : React.createElement('div', { className: 'overflow-x-auto' },
+              React.createElement('table', { className: 'min-w-full table-auto' },
+                React.createElement('thead', null,
+                  React.createElement('tr', { className: 'bg-gray-50 dark:bg-gray-700' },
+                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Tipo'),
+                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Próxima em KM'),
+                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Próxima Data'),
+                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Custo Estimado')
+                  )
                 ),
-                item.notes && React.createElement('div', { className: 'mt-2' },
-                  React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Observações: '),
-                  React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.notes)
+                React.createElement('tbody', { className: 'bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700' },
+                  (analysis.futureProjections || []).map((proj, index) =>
+                    React.createElement('tr', { key: index },
+                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, proj.type),
+                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, `${proj.nextKm.toLocaleString()} km`),
+                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, new Date(proj.nextDate).toLocaleDateString('pt-BR')),
+                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-semibold' },
+                        React.createElement('span', { 
+                          className: proj.estimatedCost > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                        }, `R$ ${proj.estimatedCost.toFixed(2)}`)
+                      )
+                    )
+                  )
                 )
               )
             )
+        ),
+
+        // Projeção Mensal
+        React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6' },
+          React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Projeção dos Próximos 12 Meses'),
+          React.createElement('div', { className: 'overflow-x-auto' },
+            React.createElement('table', { className: 'min-w-full table-auto' },
+              React.createElement('thead', null,
+                React.createElement('tr', { className: 'bg-gray-50 dark:bg-gray-700' },
+                  React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Mês'),
+                  React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Manutenções Previstas'),
+                  React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Custo Total Estimado')
+                )
+              ),
+              React.createElement('tbody', { className: 'bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700' },
+                (analysis.monthlyProjection || []).map((proj, index) =>
+                  React.createElement('tr', { key: index },
+                    React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white' }, proj.month),
+                    React.createElement('td', { className: 'px-4 py-2 text-sm text-gray-900 dark:text-white' },
+                      proj.maintenances.length > 0 
+                        ? proj.maintenances.map(m => m.type).join(', ')
+                        : 'Nenhuma'
+                    ),
+                    React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-semibold' },
+                      React.createElement('span', { 
+                        className: proj.totalCost > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                      }, `R$ ${proj.totalCost.toFixed(2)}`)
+                    )
+                  )
+                )
+              )
+            )
+          ),
+          React.createElement('div', { className: 'mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded' },
+            React.createElement('h5', { className: 'text-md font-semibold text-blue-900 dark:text-blue-100 mb-2' }, 'Comparação com Gastos Passados'),
+            React.createElement('div', { className: 'flex justify-between' },
+              React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Gasto Médio Mensal (últimos 12 meses):'),
+              React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${((analysis.totalSpent || 0) / 12).toFixed(2)}`)
+            ),
+            React.createElement('div', { className: 'flex justify-between mt-1' },
+              React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Projeção Média Mensal (próximos 12 meses):'),
+              React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${((analysis.monthlyProjection || []).reduce((sum, p) => sum + p.totalCost, 0) / 12).toFixed(2)}`)
+            )
           )
+        ),
+
+        // Fundo de Manutenção
+        React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6' },
+          React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Fundo de Manutenção'),
+          React.createElement('div', { className: 'space-y-3' },
+            React.createElement('div', { className: 'flex justify-between' },
+              React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Gasto Médio Mensal (últimos 12 meses):'),
+              React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `R$ ${((analysis.totalSpent || 0) / 12).toFixed(2)}`)
+            ),
+            React.createElement('div', { className: 'flex justify-between' },
+              React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Recomendação de Reserva Mensal:'),
+              React.createElement('span', { className: 'font-semibold text-blue-600 dark:text-blue-400' }, `R$ ${(((analysis.totalSpent || 0) / 12) * 1.2).toFixed(2)} (20% margem de segurança)`)
+            )
+          )
+        )
       )
     );
   }

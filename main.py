@@ -81,6 +81,7 @@ class MaintenanceLogCreate(BaseModel):
     notes: Optional[str] = None
     service_cost: float = 0.0
     product_cost: float = 0.0
+    category: str = 'preventiva'
 
 class UserCreate(BaseModel):
     name: Optional[str] = None
@@ -383,7 +384,8 @@ def get_vehicle_history(vehicle_id: int, user: models.User = Depends(get_current
             "km_performed": log.km_performed,
             "notes": log.notes,
             "service_cost": log.service_cost,
-            "product_cost": log.product_cost
+            "product_cost": log.product_cost,
+            "category": log.category
         })
     return history
 
