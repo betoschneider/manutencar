@@ -18,6 +18,7 @@
 
       try {
         const res = await axios.post('register', {
+          name: formData.username,
           email: formData.email,
           password: formData.password
         });

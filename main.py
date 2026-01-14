@@ -131,50 +131,59 @@ def send_email_alert(email: str, message: str):
     # Simulação de envio de email
     print(f"--- EMAIL ENVIADO PARA {email} ---\nConteúdo: {message}\n-----------------------------------")
 
-def seed_user_maintenance_types(db: Session, user_id: int):
-    defaults = [
-        {"name": "Troca de Óleo do Motor", "km": 10000, "months": 12},
-        {"name": "Filtro de Óleo", "km": 10000, "months": 12},
-        {"name": "Filtro de Ar", "km": 20000, "months": 24},
-        {"name": "Filtro de Combustível", "km": 20000, "months": 24},
-        {"name": "Pastilhas de Freio", "km": 30000, "months": 36},
-        {"name": "Fluido de Freio", "km": 40000, "months": 24},
-        {"name": "Líquido de Arrefecimento", "km": 40000, "months": 24},
-        {"name": "Óleo de Câmbio (Manual)", "km": 100000, "months": 60},
-        {"name": "Correia Dentada", "km": 60000, "months": 48},
-        {"name": "Velas de Ignição", "km": 50000, "months": 48},
-    ]
-    for item in defaults:
-        mt = models.MaintenanceType(
-            name=item["name"], 
-            default_interval_km=item["km"], 
-            default_interval_months=item["months"],
-            user_id=user_id
-        )
-        db.add(mt)
-    db.commit()
-
 # --- Rotas ---
 
 @app.post("/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
     try:
+        # 1. Verificar se o e-mail já existe
+        existing = db.query(models.User).filter(models.User.email == user.email).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Este e-mail já está em uso.")
+            
+        # 2. Criar novo usuário
         hashed_pw = pwd_context.hash(user.password)
         db_user = models.User(name=user.name, email=user.email, hashed_password=hashed_pw)
         db.add(db_user)
+        db.flush() # Obtém o ID sem commitar
+        
+        # 3. Seed personal maintenance types (na mesma transação)
+        defaults = [
+            {"name": "Troca de Óleo do Motor", "km": 10000, "months": 12},
+            {"name": "Filtro de Óleo", "km": 10000, "months": 12},
+            {"name": "Filtro de Ar", "km": 20000, "months": 24},
+            {"name": "Filtro de Combustível", "km": 20000, "months": 24},
+            {"name": "Pastilhas de Freio", "km": 30000, "months": 36},
+            {"name": "Fluido de Freio", "km": 40000, "months": 24},
+            {"name": "Líquido de Arrefecimento", "km": 40000, "months": 24},
+            {"name": "Óleo de Câmbio (Manual)", "km": 100000, "months": 60},
+            {"name": "Correia Dentada", "km": 60000, "months": 48},
+            {"name": "Velas de Ignição", "km": 50000, "months": 48},
+        ]
+        for item in defaults:
+            mt = models.MaintenanceType(
+                name=item["name"], 
+                default_interval_km=item["km"], 
+                default_interval_months=item["months"],
+                user_id=db_user.id
+            )
+            db.add(mt)
+        
         db.commit()
-        db.refresh(db_user)
-        
-        # Seed personal maintenance types
-        seed_user_maintenance_types(db, db_user.id)
-        
         return {"msg": "Usuário criado"}
-    except IntegrityError:
+        
+    except HTTPException:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Este e-mail já está em uso.")
+        raise
+    except IntegrityError as e:
+        db.rollback()
+        error_msg = str(e).lower()
+        if "unique" in error_msg and "email" in error_msg:
+            raise HTTPException(status_code=400, detail="Este e-mail já está em uso.")
+        raise HTTPException(status_code=400, detail=f"Erro de integridade no banco de dados: {e}")
     except Exception as e:
         db.rollback()
-        print(f"ERRO NO REGISTRO: {e}") # Isso mostrará o erro real no terminal
+        print(f"ERRO NO REGISTRO: {e}")
         raise HTTPException(status_code=500, detail=f"Ocorreu um erro interno: {e}")
 
 @app.post("/token")
