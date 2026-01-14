@@ -2,7 +2,7 @@
   const { useState, useEffect, useContext } = React;
 
   function Profile() {
-    const { token, user, login } = useContext(window.AuthContext);
+    const { token, user, login, logout } = useContext(window.AuthContext);
     const [formData, setFormData] = useState({
       name: user?.name || '',
       email: user?.email || '',
@@ -139,7 +139,30 @@
           type: 'submit',
           disabled: loading,
           className: 'w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50'
-        }, loading ? 'Salvando...' : 'Salvar Alterações')
+        }, loading ? 'Salvando...' : 'Salvar Alterações'),
+
+        React.createElement('div', { className: 'pt-8 mt-8 border-t border-red-200 dark:border-red-900' },
+          React.createElement('h3', { className: 'text-lg font-bold text-red-600 dark:text-red-400 mb-2' }, 'Zona de Perigo'),
+          React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400 mb-4' },
+            'A exclusão da conta é uma ação crítica e irreversível. Todos os seus veículos e históricos de manutenção serão permanentemente apagados.'
+          ),
+          React.createElement('button', {
+            type: 'button',
+            onClick: async () => {
+              if (confirm('AVISO CRÍTICO: Você tem certeza que deseja excluir sua conta? Esta ação é IRREVERSÍVEL e todos os seus dados serão perdidos para sempre!')) {
+                try {
+                  await axios.delete('me', { headers: { Authorization: `Bearer ${token}` } });
+                  alert('Sua conta foi excluída com sucesso.');
+                  logout();
+                  window.location.href = '/';
+                } catch (err) {
+                  alert('Erro ao excluir conta');
+                }
+              }
+            },
+            className: 'w-full py-2 px-4 border border-red-600 text-red-600 hover:bg-red-600 hover:text-white rounded-md text-sm font-medium transition-colors'
+          }, 'Excluir Minha Conta')
+        )
       )
     );
   }

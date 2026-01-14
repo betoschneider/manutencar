@@ -14,7 +14,10 @@
     const navigate = useNavigate ? useNavigate() : (path => { window.location.href = path; });
     const [vehicle, setVehicle] = useState(null);
     const [maintenanceHistory, setMaintenanceHistory] = useState([]);
+    const [maintenanceTypes, setMaintenanceTypes] = useState([]);
     const [analysis, setAnalysis] = useState({});
+    const [editingLogId, setEditingLogId] = useState(null);
+    const [editingLogForm, setEditingLogForm] = useState({ maintenance_type_id: '', km_performed: 0, date_performed: '', notes: '', service_cost: 0, product_cost: 0, category: 'preventiva' });
 
     const fetchData = async () => {
       try {
@@ -27,8 +30,9 @@
         const found = (vehiclesRes.data || []).find(v => v.id === vid);
         setVehicle(found || null);
         const history = historyRes.data || [];
-        const maintenanceTypes = typesRes.data || [];
+        const mTypes = typesRes.data || [];
         setMaintenanceHistory(history);
+        setMaintenanceTypes(mTypes);
 
         // Calcular análises
         const now = new Date();
@@ -72,7 +76,7 @@
             const nextKm = lastLog.km_performed + (mt.default_interval_km || 10000);
             const nextDate = new Date(lastLog.date_performed);
             nextDate.setMonth(nextDate.getMonth() + (mt.default_interval_months || 12));
-            
+
             futureProjections.push({
               type: mt.name,
               nextKm,
@@ -92,7 +96,7 @@
             return projDate.getFullYear() === monthDate.getFullYear() && projDate.getMonth() === monthDate.getMonth();
           });
           const totalCost = dueMaintenances.reduce((sum, m) => sum + m.estimatedCost, 0);
-          
+
           monthlyProjection.push({
             month: monthKey,
             maintenances: dueMaintenances,
@@ -209,8 +213,38 @@
                     },
                       React.createElement('div', { className: 'flex justify-between items-start mb-2' },
                         React.createElement('h5', { className: 'text-lg font-semibold text-gray-900 dark:text-white' }, item.maintenance_type || item.maintenance_type_name),
-                        React.createElement('span', { className: 'text-sm text-gray-600 dark:text-gray-400' },
-                          new Date(item.date_performed).toLocaleDateString('pt-BR')
+                        React.createElement('div', { className: 'flex items-center gap-2' },
+                          React.createElement('span', { className: 'text-sm text-gray-600 dark:text-gray-400' },
+                            new Date(item.date_performed).toLocaleDateString('pt-BR')
+                          ),
+                          React.createElement('button', {
+                            onClick: () => {
+                              const type = maintenanceTypes.find(t => t.name === item.maintenance_type);
+                              setEditingLogId(item.id);
+                              setEditingLogForm({
+                                maintenance_type_id: type ? type.id : '',
+                                km_performed: item.km_performed,
+                                date_performed: item.date_performed.split('T')[0],
+                                notes: item.notes || '',
+                                service_cost: item.service_cost || 0,
+                                product_cost: item.product_cost || 0,
+                                category: item.category || 'preventiva'
+                              });
+                            },
+                            className: 'text-blue-500 hover:text-blue-700'
+                          }, React.createElement('span', { className: 'material-icons text-lg' }, 'edit')),
+                          React.createElement('button', {
+                            onClick: async () => {
+                              if (!confirm('Deseja realmente excluir este registro de manutenção?')) return;
+                              try {
+                                await axios.delete(`maintenance-logs/${item.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                                fetchData();
+                              } catch (err) {
+                                alert('Erro ao excluir registro');
+                              }
+                            },
+                            className: 'text-red-500 hover:text-red-700'
+                          }, React.createElement('span', { className: 'material-icons text-lg' }, 'delete'))
                         )
                       ),
                       React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4 text-sm' },
@@ -228,7 +262,7 @@
                         ),
                         React.createElement('div', null,
                           React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Total: '),
-                          React.createElement('span', { 
+                          React.createElement('span', {
                             className: `font-semibold ${(item.service_cost || 0) + (item.product_cost || 0) > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`
                           },
                             `R$ ${(item.service_cost || 0) + (item.product_cost || 0)}`
@@ -243,7 +277,99 @@
                   )
                 )
               ) : null;
-            })
+            }),
+
+            // Modal de Edição de Log de Manutenção
+            editingLogId && React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50' },
+              React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full shadow-xl max-h-[90vh] overflow-y-auto' },
+                React.createElement('h4', { className: 'text-xl font-bold mb-4' }, 'Editar Registro de Manutenção'),
+                React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                  React.createElement('div', null,
+                    React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'Tipo de Manutenção'),
+                    React.createElement('select', {
+                      value: editingLogForm.maintenance_type_id,
+                      onChange: (e) => setEditingLogForm({ ...editingLogForm, maintenance_type_id: parseInt(e.target.value) }),
+                      className: 'w-full px-3 py-2 rounded border dark:bg-gray-700'
+                    },
+                      React.createElement('option', { value: '' }, 'Selecione...'),
+                      maintenanceTypes.map(t => React.createElement('option', { key: t.id, value: t.id }, t.name))
+                    )
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'Categoria'),
+                    React.createElement('select', {
+                      value: editingLogForm.category,
+                      onChange: (e) => setEditingLogForm({ ...editingLogForm, category: e.target.value }),
+                      className: 'w-full px-3 py-2 rounded border dark:bg-gray-700'
+                    },
+                      React.createElement('option', { value: 'preventiva' }, 'Preventiva'),
+                      React.createElement('option', { value: 'desgaste' }, 'Desgaste'),
+                      React.createElement('option', { value: 'corretiva' }, 'Corretiva')
+                    )
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'KM Realizada'),
+                    React.createElement('input', {
+                      type: 'number',
+                      value: editingLogForm.km_performed,
+                      onChange: (e) => setEditingLogForm({ ...editingLogForm, km_performed: parseInt(e.target.value || 0) }),
+                      className: 'w-full px-3 py-2 rounded border dark:bg-gray-700'
+                    })
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'Data'),
+                    React.createElement('input', {
+                      type: 'date',
+                      value: editingLogForm.date_performed,
+                      onChange: (e) => setEditingLogForm({ ...editingLogForm, date_performed: e.target.value }),
+                      className: 'w-full px-3 py-2 rounded border dark:bg-gray-700'
+                    })
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'Custo de Serviço (R$)'),
+                    React.createElement('input', {
+                      type: 'number',
+                      value: editingLogForm.service_cost,
+                      onChange: (e) => setEditingLogForm({ ...editingLogForm, service_cost: parseFloat(e.target.value || 0) }),
+                      className: 'w-full px-3 py-2 rounded border dark:bg-gray-700'
+                    })
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'Custo de Produtos (R$)'),
+                    React.createElement('input', {
+                      type: 'number',
+                      value: editingLogForm.product_cost,
+                      onChange: (e) => setEditingLogForm({ ...editingLogForm, product_cost: parseFloat(e.target.value || 0) }),
+                      className: 'w-full px-3 py-2 rounded border dark:bg-gray-700'
+                    })
+                  ),
+                  React.createElement('div', { className: 'md:col-span-2' },
+                    React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'Observações'),
+                    React.createElement('textarea', {
+                      value: editingLogForm.notes,
+                      onChange: (e) => setEditingLogForm({ ...editingLogForm, notes: e.target.value }),
+                      className: 'w-full px-3 py-2 rounded border dark:bg-gray-700',
+                      rows: 3
+                    })
+                  )
+                ),
+                React.createElement('div', { className: 'flex justify-end gap-3 mt-6' },
+                  React.createElement('button', { onClick: () => setEditingLogId(null), className: 'px-4 py-2 text-gray-600 hover:bg-gray-100 rounded' }, 'Cancelar'),
+                  React.createElement('button', {
+                    onClick: async () => {
+                      try {
+                        await axios.put(`maintenance-logs/${editingLogId}`, editingLogForm, { headers: { Authorization: `Bearer ${token}` } });
+                        setEditingLogId(null);
+                        fetchData();
+                      } catch (err) {
+                        alert(err?.response?.data?.detail || 'Erro ao atualizar registro');
+                      }
+                    },
+                    className: 'px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'
+                  }, 'Salvar')
+                )
+              )
+            )
           ),
 
         // Seção de Análises
@@ -315,7 +441,7 @@
                       React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, `${proj.nextKm.toLocaleString()} km`),
                       React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, new Date(proj.nextDate).toLocaleDateString('pt-BR')),
                       React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-semibold' },
-                        React.createElement('span', { 
+                        React.createElement('span', {
                           className: proj.estimatedCost > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
                         }, `R$ ${proj.estimatedCost.toFixed(2)}`)
                       )
@@ -343,12 +469,12 @@
                   React.createElement('tr', { key: index },
                     React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white' }, proj.month),
                     React.createElement('td', { className: 'px-4 py-2 text-sm text-gray-900 dark:text-white' },
-                      proj.maintenances.length > 0 
+                      proj.maintenances.length > 0
                         ? proj.maintenances.map(m => m.type).join(', ')
                         : 'Nenhuma'
                     ),
                     React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-semibold' },
-                      React.createElement('span', { 
+                      React.createElement('span', {
                         className: proj.totalCost > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
                       }, `R$ ${proj.totalCost.toFixed(2)}`)
                     )
