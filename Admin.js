@@ -15,6 +15,8 @@
     const [editingVehicleForm, setEditingVehicleForm] = useState({ make: '', model: '', year: 2024, current_km: 0, license_plate: '' });
     const [newVehicleForm, setNewVehicleForm] = useState({ make: '', model: '', year: 2024, current_km: 0, license_plate: '' });
     const [newType, setNewType] = useState({ name: '', default_interval_km: 10000, default_interval_months: 12, description: '' });
+    const [editingTypeId, setEditingTypeId] = useState(null);
+    const [editingTypeForm, setEditingTypeForm] = useState({ name: '', default_interval_km: 10000, default_interval_months: 12, description: '' });
     const [loadingCreate, setLoadingCreate] = useState(false);
     const [showAddVehicle, setShowAddVehicle] = useState(false);
 
@@ -61,6 +63,15 @@
       }
     }, [editingVehicleId, vehicles]);
 
+    useEffect(() => {
+      if (editingTypeId && Array.isArray(maintenanceTypes) && maintenanceTypes.length > 0) {
+        const t = maintenanceTypes.find(x => x.id === editingTypeId);
+        if (t) {
+          setEditingTypeForm({ name: t.name || '', default_interval_km: t.default_interval_km || 0, default_interval_months: t.default_interval_months || 0, description: t.description || '' });
+        }
+      }
+    }, [editingTypeId, maintenanceTypes]);
+
     return React.createElement('div', { className: 'space-y-6 pb-12' },
       React.createElement('div', { className: 'flex justify-between items-center' },
         React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 dark:text-white' }, 'Administração'),
@@ -89,9 +100,9 @@
           React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-5 gap-3' },
             React.createElement('input', { placeholder: 'Marca (Ex: Toyota)', value: newVehicleForm.make, onChange: (e) => setNewVehicleForm({ ...newVehicleForm, make: e.target.value }), className: 'px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600' }),
             React.createElement('input', { placeholder: 'Modelo (Ex: Corolla)', value: newVehicleForm.model, onChange: (e) => setNewVehicleForm({ ...newVehicleForm, model: e.target.value }), className: 'px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600' }),
-            React.createElement('input', { placeholder: 'Ano', type: 'number', value: newVehicleForm.year, onChange: (e) => setNewVehicleForm({ ...newVehicleForm, year: parseInt(e.target.value || 0) }), className: 'px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600' }),
-            React.createElement('input', { placeholder: 'Placa', value: newVehicleForm.license_plate, onChange: (e) => setNewVehicleForm({ ...newVehicleForm, license_plate: e.target.value.toUpperCase() }), className: 'px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600' }),
-            React.createElement('input', { placeholder: 'KM Atual', type: 'number', value: newVehicleForm.current_km, onChange: (e) => setNewVehicleForm({ ...newVehicleForm, current_km: parseInt(e.target.value || 0) }), className: 'px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600' })
+            React.createElement('input', { placeholder: 'Ano (Ex: 2024)', type: 'number', value: newVehicleForm.year || '', onChange: (e) => setNewVehicleForm({ ...newVehicleForm, year: parseInt(e.target.value || 0) }), className: 'px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600' }),
+            React.createElement('input', { placeholder: 'Placa (Ex: ABC1D23)', value: newVehicleForm.license_plate, onChange: (e) => setNewVehicleForm({ ...newVehicleForm, license_plate: e.target.value.toUpperCase() }), className: 'px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600' }),
+            React.createElement('input', { placeholder: 'KM Atual (Ex: 50000)', type: 'number', value: newVehicleForm.current_km || '', onChange: (e) => setNewVehicleForm({ ...newVehicleForm, current_km: parseInt(e.target.value || 0) }), className: 'px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600' })
           ),
           React.createElement('button', {
             onClick: async () => {
@@ -239,18 +250,65 @@
                 React.createElement('div', { className: 'font-medium' }, type.name),
                 React.createElement('div', { className: 'text-sm text-gray-500' }, `${type.default_interval_km} km / ${type.default_interval_months} meses`)
               ),
+              React.createElement('div', { className: 'flex gap-2' },
+                React.createElement('button', {
+                  onClick: () => {
+                    setEditingTypeId(type.id);
+                    setEditingTypeForm({ ...type });
+                  },
+                  className: 'text-blue-500 hover:text-blue-700'
+                }, React.createElement('span', { className: 'material-icons' }, 'edit')),
+                React.createElement('button', {
+                  onClick: async () => {
+                    if (!confirm(`Remover tipo '${type.name}'?`)) return;
+                    try {
+                      await axios.delete(`maintenance-types/${type.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                      setMaintenanceTypes(maintenanceTypes.filter(t => t.id !== type.id));
+                    } catch (err) {
+                      alert(err?.response?.data?.detail || 'Erro ao remover tipo');
+                    }
+                  },
+                  className: 'text-red-500 hover:text-red-700'
+                }, React.createElement('span', { className: 'material-icons' }, 'delete'))
+              )
+            )
+          )
+        ),
+
+        // Modal de Edição de Tipo de Manutenção
+        editingTypeId && React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50' },
+          React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full shadow-xl' },
+            React.createElement('h4', { className: 'text-xl font-bold mb-4' }, 'Editar Tipo de Manutenção'),
+            React.createElement('div', { className: 'grid grid-cols-1 gap-4' },
+              React.createElement('div', null,
+                React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'Nome'),
+                React.createElement('input', { value: editingTypeForm.name, onChange: (e) => setEditingTypeForm({ ...editingTypeForm, name: e.target.value }), className: 'w-full px-3 py-2 rounded border dark:bg-gray-700' })
+              ),
+              React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+                React.createElement('div', null,
+                  React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'Intervalo KM'),
+                  React.createElement('input', { type: 'number', value: editingTypeForm.default_interval_km, onChange: (e) => setEditingTypeForm({ ...editingTypeForm, default_interval_km: parseInt(e.target.value || 0) }), className: 'w-full px-3 py-2 rounded border dark:bg-gray-700' })
+                ),
+                React.createElement('div', null,
+                  React.createElement('label', { className: 'block text-sm font-medium mb-1' }, 'Intervalo Meses'),
+                  React.createElement('input', { type: 'number', value: editingTypeForm.default_interval_months, onChange: (e) => setEditingTypeForm({ ...editingTypeForm, default_interval_months: parseInt(e.target.value || 0) }), className: 'w-full px-3 py-2 rounded border dark:bg-gray-700' })
+                )
+              )
+            ),
+            React.createElement('div', { className: 'flex justify-end gap-3 mt-6' },
+              React.createElement('button', { onClick: () => setEditingTypeId(null), className: 'px-4 py-2 text-gray-600 hover:bg-gray-100 rounded' }, 'Cancelar'),
               React.createElement('button', {
                 onClick: async () => {
-                  if (!confirm(`Remover tipo '${type.name}'?`)) return;
                   try {
-                    await axios.delete(`maintenance-types/${type.id}`, { headers: { Authorization: `Bearer ${token}` } });
-                    setMaintenanceTypes(maintenanceTypes.filter(t => t.id !== type.id));
+                    const res = await axios.put(`maintenance-types/${editingTypeId}`, editingTypeForm, { headers: { Authorization: `Bearer ${token}` } });
+                    setMaintenanceTypes(maintenanceTypes.map(t => t.id === res.data.id ? res.data : t));
+                    setEditingTypeId(null);
                   } catch (err) {
-                    alert(err?.response?.data?.detail || 'Erro ao remover tipo');
+                    alert(err?.response?.data?.detail || 'Erro ao atualizar tipo');
                   }
                 },
-                className: 'text-red-500 hover:text-red-700'
-              }, React.createElement('span', { className: 'material-icons' }, 'delete'))
+                className: 'px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'
+              }, 'Salvar')
             )
           )
         )

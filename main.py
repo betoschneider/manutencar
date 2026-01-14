@@ -93,6 +93,21 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     password: Optional[str] = None
 
+class MaintenanceTypeUpdate(BaseModel):
+    name: Optional[str] = None
+    default_interval_km: Optional[int] = None
+    default_interval_months: Optional[int] = None
+    description: Optional[str] = None
+
+class MaintenanceLogUpdate(BaseModel):
+    maintenance_type_id: Optional[int] = None
+    km_performed: Optional[int] = None
+    date_performed: Optional[datetime] = None
+    notes: Optional[str] = None
+    service_cost: Optional[float] = None
+    product_cost: Optional[float] = None
+    category: Optional[str] = None
+
 # --- Funções Auxiliares ---
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -191,6 +206,23 @@ def update_current_user(user_update: UserUpdate, current_user: models.User = Dep
     db.refresh(current_user)
     return {"id": current_user.id, "name": current_user.name, "email": current_user.email}
 
+@app.delete("/me")
+def delete_current_user(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Deletar todos os dados associados
+    # 1. Veículos (que deletarão logs devido à relação)
+    vehicles = db.query(models.Vehicle).filter(models.Vehicle.owner_id == current_user.id).all()
+    for v in vehicles:
+        db.query(models.MaintenanceLog).filter(models.MaintenanceLog.vehicle_id == v.id).delete()
+        db.delete(v)
+    
+    # 2. Tipos de manutenção
+    db.query(models.MaintenanceType).filter(models.MaintenanceType.user_id == current_user.id).delete()
+    
+    # 3. O próprio usuário
+    db.delete(current_user)
+    db.commit()
+    return {"msg": "Conta excluída com sucesso"}
+
 @app.get("/users")
 def get_users(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(models.User).all()
@@ -209,6 +241,29 @@ def create_maintenance_type(mt: MaintenanceTypeCreate, user: models.User = Depen
         raise HTTPException(status_code=400, detail="Tipo de manutenção já existe para este usuário")
     db_mt = models.MaintenanceType(**mt.dict(), user_id=user.id)
     db.add(db_mt)
+    db.commit()
+    db.refresh(db_mt)
+    return db_mt
+
+
+@app.put("/maintenance-types/{mt_id}")
+def update_maintenance_type(mt_id: int, mt_update: MaintenanceTypeUpdate, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    db_mt = db.query(models.MaintenanceType).filter(
+        models.MaintenanceType.id == mt_id,
+        models.MaintenanceType.user_id == user.id
+    ).first()
+    if not db_mt:
+        raise HTTPException(status_code=404, detail="Tipo de manutenção não encontrado")
+    
+    if mt_update.name is not None:
+        db_mt.name = mt_update.name
+    if mt_update.default_interval_km is not None:
+        db_mt.default_interval_km = mt_update.default_interval_km
+    if mt_update.default_interval_months is not None:
+        db_mt.default_interval_months = mt_update.default_interval_months
+    if mt_update.description is not None:
+        db_mt.description = mt_update.description
+        
     db.commit()
     db.refresh(db_mt)
     return db_mt
@@ -388,6 +443,55 @@ def get_vehicle_history(vehicle_id: int, user: models.User = Depends(get_current
             "category": log.category
         })
     return history
+
+@app.put("/maintenance-logs/{log_id}")
+def update_maintenance_log(log_id: int, log_update: MaintenanceLogUpdate, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Verificar se o log pertence a um veículo do usuário
+    db_log = db.query(models.MaintenanceLog)\
+        .join(models.Vehicle)\
+        .filter(models.MaintenanceLog.id == log_id, models.Vehicle.owner_id == user.id)\
+        .first()
+        
+    if not db_log:
+        raise HTTPException(status_code=404, detail="Log de manutenção não encontrado")
+    
+    if log_update.maintenance_type_id is not None:
+        db_log.maintenance_type_id = log_update.maintenance_type_id
+    if log_update.km_performed is not None:
+        db_log.km_performed = log_update.km_performed
+        # Se alterou o KM, pode ser necessário atualizar o current_km do veículo
+        vehicle = db_log.vehicle
+        if db_log.km_performed > vehicle.current_km:
+            vehicle.current_km = db_log.km_performed
+            
+    if log_update.date_performed is not None:
+        db_log.date_performed = log_update.date_performed
+    if log_update.notes is not None:
+        db_log.notes = log_update.notes
+    if log_update.service_cost is not None:
+        db_log.service_cost = log_update.service_cost
+    if log_update.product_cost is not None:
+        db_log.product_cost = log_update.product_cost
+    if log_update.category is not None:
+        db_log.category = log_update.category
+        
+    db.commit()
+    db.refresh(db_log)
+    return db_log
+
+@app.delete("/maintenance-logs/{log_id}")
+def delete_maintenance_log(log_id: int, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    db_log = db.query(models.MaintenanceLog)\
+        .join(models.Vehicle)\
+        .filter(models.MaintenanceLog.id == log_id, models.Vehicle.owner_id == user.id)\
+        .first()
+        
+    if not db_log:
+        raise HTTPException(status_code=404, detail="Log de manutenção não encontrado")
+        
+    db.delete(db_log)
+    db.commit()
+    return {"msg": "Log de manutenção removido"}
 
 @app.get("/stats")
 def get_stats(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
