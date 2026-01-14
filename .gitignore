@@ -11,3 +11,4 @@ dist/
 .env
 # OS metadata
 .DS_Store
+backup/

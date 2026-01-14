@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -25,12 +25,14 @@ class Vehicle(Base):
 
 class MaintenanceType(Base):
     __tablename__ = "maintenance_types"
+    __table_args__ = (UniqueConstraint('name', 'user_id', name='_name_user_uc'),)
+    
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
-    default_interval_km = Column(Integer) # Ex: 10000
-    default_interval_months = Column(Integer) # Ex: 12
+    default_interval_km = Column(Integer) 
+    default_interval_months = Column(Integer)
     description = Column(String, nullable=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Null for system defaults? No, user wants personal.
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     user = relationship("User")
 
