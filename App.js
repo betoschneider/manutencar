@@ -120,17 +120,17 @@
                     React.createElement('div', { className: 'flex items-center gap-4' },
                       React.createElement('button', {
                         onClick: toggleColorMode,
-                        className: 'p-2 rounded-full hover:bg-blue-700 focus:outline-none'
+                        className: 'p-2 rounded-full hover:bg-blue-700 focus:outline-none no-print'
                       }, React.createElement('span', { className: 'material-icons align-middle' }, mode === 'dark' ? 'brightness_7' : 'brightness_4')),
-                      token && user && React.createElement('div', { className: 'text-right mr-4' },
+                      token && user && React.createElement('div', { className: 'text-right mr-4 no-print' },
                         React.createElement('div', { className: 'text-sm font-medium' }, user.name || user.email),
                         React.createElement('div', { className: 'text-xs opacity-75' }, user.email)
                       ),
                       token && React.createElement('button', {
                         onClick: () => window.location.href = '/profile',
-                        className: 'px-3 py-2 hover:bg-blue-700 rounded font-medium text-sm'
+                        className: 'px-3 py-2 hover:bg-blue-700 rounded font-medium text-sm no-print'
                       }, 'Perfil'),
-                      token && React.createElement('button', { onClick: logout, className: 'px-4 py-2 hover:bg-blue-700 rounded font-medium' }, 'Sair')
+                      token && React.createElement('button', { onClick: logout, className: 'px-4 py-2 hover:bg-blue-700 rounded font-medium no-print' }, 'Sair')
                     )
                   )
                 )
@@ -150,8 +150,8 @@
                   React.createElement('div', { className: 'flex items-center justify-between h-16' },
                     React.createElement('span', { className: 'text-xl font-bold' }, 'ManutenCar'),
                     React.createElement('div', { className: 'flex items-center gap-4' },
-                      React.createElement('button', { onClick: toggleColorMode, className: 'p-2 rounded-full hover:bg-blue-700 focus:outline-none' }, React.createElement('span', { className: 'material-icons align-middle' }, mode === 'dark' ? 'brightness_7' : 'brightness_4')),
-                      token && React.createElement('button', { onClick: logout, className: 'px-4 py-2 hover:bg-blue-700 rounded font-medium' }, 'Sair')
+                      React.createElement('button', { onClick: toggleColorMode, className: 'p-2 rounded-full hover:bg-blue-700 focus:outline-none no-print' }, React.createElement('span', { className: 'material-icons align-middle' }, mode === 'dark' ? 'brightness_7' : 'brightness_4')),
+                      token && React.createElement('button', { onClick: logout, className: 'px-4 py-2 hover:bg-blue-700 rounded font-medium no-print' }, 'Sair')
                     )
                   )
                 )

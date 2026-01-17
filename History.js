@@ -20,6 +20,28 @@
     const [editingLogForm, setEditingLogForm] = useState({ maintenance_type_id: '', km_performed: 0, date_performed: '', notes: '', service_cost: 0, product_cost: 0, category: 'preventiva' });
     const [categoryFilter, setCategoryFilter] = useState('todas');
 
+    useEffect(() => {
+      const style = document.createElement('style');
+      style.id = 'print-styles';
+      style.innerHTML = `
+        @media print {
+          .no-print { display: none !important; }
+          .print-break-inside-avoid { page-break-inside: avoid; }
+          body { background: white !important; color: black !important; }
+          .bg-white, .dark\\:bg-gray-800 { background-color: white !important; color: black !important; padding: 0 !important; }
+          .dark .text-white, .dark .dark\\:text-white { color: black !important; }
+          .shadow-md, .shadow-xl { box-shadow: none !important; }
+          .border { border: 1px solid #ddd !important; }
+          .rounded-lg { border-radius: 0 !important; }
+        }
+      `;
+      document.head.appendChild(style);
+      return () => {
+        const s = document.getElementById('print-styles');
+        if (s) s.remove();
+      };
+    }, []);
+
     const fetchData = async () => {
       try {
         const [historyRes, vehiclesRes, typesRes] = await Promise.all([
@@ -167,11 +189,15 @@
         React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 dark:text-white' },
           `Histórico de Manutenção - ${vehicle.make} ${vehicle.model}`
         ),
-        React.createElement('div', null,
+        React.createElement('div', { className: 'no-print' },
           React.createElement('button', {
             onClick: () => navigate('/'),
             className: 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium mr-2'
           }, 'Voltar ao Dashboard'),
+          React.createElement('button', {
+            onClick: () => window.print(),
+            className: 'bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded font-medium mr-2'
+          }, 'Imprimir Histórico'),
           React.createElement('button', {
             onClick: exportCsv,
             className: 'bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium'
@@ -201,7 +227,7 @@
           ? React.createElement('p', { className: 'text-gray-600 dark:text-gray-400' }, 'Nenhuma manutenção registrada ainda.')
           : React.createElement('div', { className: 'space-y-6' },
             // Filtro de Categoria
-            React.createElement('div', { className: 'flex items-center gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg' },
+            React.createElement('div', { className: 'flex items-center gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg no-print' },
               React.createElement('span', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300' }, 'Filtrar por Categoria:'),
               React.createElement('div', { className: 'flex gap-2' },
                 ['todas', 'preventiva', 'desgaste', 'corretiva'].map(cat =>
@@ -209,8 +235,8 @@
                     key: cat,
                     onClick: () => setCategoryFilter(cat),
                     className: `px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === cat
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
                       }`
                   }, cat.charAt(0).toUpperCase() + cat.slice(1))
                 )
@@ -232,12 +258,12 @@
                         React.createElement('h5', { className: 'text-lg font-semibold text-gray-900 dark:text-white' }, item.maintenance_type || item.maintenance_type_name),
                         React.createElement('span', {
                           className: `text-xs px-2 py-0.5 rounded-full font-medium ${item.category === 'preventiva' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                              item.category === 'desgaste' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                                'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            item.category === 'desgaste' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                              'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
                             }`
                         }, (item.category || 'preventiva').toUpperCase())
                       ),
-                      React.createElement('div', { className: 'flex items-center gap-2' },
+                      React.createElement('div', { className: 'flex items-center gap-2 no-print' },
                         React.createElement('span', { className: 'text-sm text-gray-600 dark:text-gray-400' },
                           new Date(item.date_performed).toLocaleDateString('pt-BR')
                         ),
@@ -302,7 +328,7 @@
             ),
 
             // Consolidado por Categoria
-            React.createElement('div', { className: 'mt-10 pt-6 border-t border-gray-200 dark:border-gray-700' },
+            React.createElement('div', { className: 'mt-10 pt-6 border-t border-gray-200 dark:border-gray-700 no-print' },
               React.createElement('h4', { className: 'text-xl font-bold text-gray-900 dark:text-white mb-4' }, 'Consolidado por Categoria'),
               React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
                 ['preventiva', 'desgaste', 'corretiva'].map(cat => {
@@ -422,140 +448,142 @@
           ),
 
         // Seção de Análises
-        React.createElement('h3', { className: 'text-xl font-semibold text-gray-900 dark:text-white mb-4' }, 'Análises e Projeções'),
-        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
-          // Estatísticas dos últimos 12 meses
-          React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6' },
-            React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Últimos 12 Meses'),
-            React.createElement('div', { className: 'space-y-3' },
-              React.createElement('div', { className: 'flex justify-between' },
-                React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'KM Rodados:'),
-                React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `${(analysis.kmDriven || 0).toLocaleString()} km`)
+        React.createElement('div', { className: 'no-print' },
+          React.createElement('h3', { className: 'text-xl font-semibold text-gray-900 dark:text-white mb-4' }, 'Análises e Projeções'),
+          React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
+            // Estatísticas dos últimos 12 meses
+            React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6' },
+              React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Últimos 12 Meses'),
+              React.createElement('div', { className: 'space-y-3' },
+                React.createElement('div', { className: 'flex justify-between' },
+                  React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'KM Rodados:'),
+                  React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `${(analysis.kmDriven || 0).toLocaleString()} km`)
+                ),
+                React.createElement('div', { className: 'flex justify-between' },
+                  React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Média Mensal:'),
+                  React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `${(analysis.monthlyKm || 0).toFixed(0)} km/mês`)
+                ),
+                React.createElement('div', { className: 'flex justify-between' },
+                  React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Total Gasto:'),
+                  React.createElement('span', { className: 'font-semibold text-green-600 dark:text-green-400' }, `R$ ${(analysis.totalSpent || 0).toFixed(2)}`)
+                )
               ),
-              React.createElement('div', { className: 'flex justify-between' },
-                React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Média Mensal:'),
-                React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `${(analysis.monthlyKm || 0).toFixed(0)} km/mês`)
-              ),
-              React.createElement('div', { className: 'flex justify-between' },
-                React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Total Gasto:'),
-                React.createElement('span', { className: 'font-semibold text-green-600 dark:text-green-400' }, `R$ ${(analysis.totalSpent || 0).toFixed(2)}`)
+              React.createElement('h5', { className: 'text-md font-semibold text-gray-900 dark:text-white mt-4 mb-2' }, 'Gastos por Categoria'),
+              React.createElement('div', { className: 'space-y-2' },
+                ['preventiva', 'desgaste', 'corretiva'].map(cat => {
+                  const names = { preventiva: 'Preventiva', desgaste: 'Desgaste', corretiva: 'Corretiva' };
+                  return React.createElement('div', { key: cat, className: 'flex justify-between' },
+                    React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, names[cat] + ':'),
+                    React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `R$ ${(analysis.costsByCategory?.[cat] || 0).toFixed(2)}`)
+                  );
+                })
               )
             ),
-            React.createElement('h5', { className: 'text-md font-semibold text-gray-900 dark:text-white mt-4 mb-2' }, 'Gastos por Categoria'),
-            React.createElement('div', { className: 'space-y-2' },
-              ['preventiva', 'desgaste', 'corretiva'].map(cat => {
-                const names = { preventiva: 'Preventiva', desgaste: 'Desgaste', corretiva: 'Corretiva' };
-                return React.createElement('div', { key: cat, className: 'flex justify-between' },
-                  React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, names[cat] + ':'),
-                  React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `R$ ${(analysis.costsByCategory?.[cat] || 0).toFixed(2)}`)
-                );
-              })
+
+            // Custos Médios
+            React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6' },
+              React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Custos Médios por Manutenção'),
+              React.createElement('div', { className: 'space-y-3' },
+                ['preventiva', 'desgaste', 'corretiva'].map(cat => {
+                  const names = { preventiva: 'Preventiva', desgaste: 'Desgaste', corretiva: 'Corretiva' };
+                  return React.createElement('div', { key: cat, className: 'flex justify-between' },
+                    React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, names[cat] + ':'),
+                    React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `R$ ${(analysis.avgCosts?.[cat] || 0).toFixed(2)}`)
+                  );
+                })
+              )
             )
           ),
 
-          // Custos Médios
-          React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6' },
-            React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Custos Médios por Manutenção'),
-            React.createElement('div', { className: 'space-y-3' },
-              ['preventiva', 'desgaste', 'corretiva'].map(cat => {
-                const names = { preventiva: 'Preventiva', desgaste: 'Desgaste', corretiva: 'Corretiva' };
-                return React.createElement('div', { key: cat, className: 'flex justify-between' },
-                  React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, names[cat] + ':'),
-                  React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `R$ ${(analysis.avgCosts?.[cat] || 0).toFixed(2)}`)
-                );
-              })
-            )
-          )
-        ),
-
-        // Projeções Futuras
-        React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6' },
-          React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Próximas Manutenções Recomendadas'),
-          (analysis.futureProjections || []).length === 0
-            ? React.createElement('p', { className: 'text-gray-600 dark:text-gray-400' }, 'Nenhuma projeção disponível.')
-            : React.createElement('div', { className: 'overflow-x-auto' },
-              React.createElement('table', { className: 'min-w-full table-auto' },
-                React.createElement('thead', null,
-                  React.createElement('tr', { className: 'bg-gray-50 dark:bg-gray-700' },
-                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Tipo'),
-                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Próxima em KM'),
-                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Próxima Data'),
-                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Custo Estimado')
-                  )
-                ),
-                React.createElement('tbody', { className: 'bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700' },
-                  (analysis.futureProjections || []).map((proj, index) =>
-                    React.createElement('tr', { key: index },
-                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, proj.type),
-                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, `${proj.nextKm.toLocaleString()} km`),
-                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, new Date(proj.nextDate).toLocaleDateString('pt-BR')),
-                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-semibold' },
-                        React.createElement('span', {
-                          className: proj.estimatedCost > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
-                        }, `R$ ${proj.estimatedCost.toFixed(2)}`)
+          // Projeções Futuras
+          React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6' },
+            React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Próximas Manutenções Recomendadas'),
+            (analysis.futureProjections || []).length === 0
+              ? React.createElement('p', { className: 'text-gray-600 dark:text-gray-400' }, 'Nenhuma projeção disponível.')
+              : React.createElement('div', { className: 'overflow-x-auto' },
+                React.createElement('table', { className: 'min-w-full table-auto' },
+                  React.createElement('thead', null,
+                    React.createElement('tr', { className: 'bg-gray-50 dark:bg-gray-700' },
+                      React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Tipo'),
+                      React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Próxima em KM'),
+                      React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Próxima Data'),
+                      React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Custo Estimado')
+                    )
+                  ),
+                  React.createElement('tbody', { className: 'bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700' },
+                    (analysis.futureProjections || []).map((proj, index) =>
+                      React.createElement('tr', { key: index },
+                        React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, proj.type),
+                        React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, `${proj.nextKm.toLocaleString()} km`),
+                        React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white' }, new Date(proj.nextDate).toLocaleDateString('pt-BR')),
+                        React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-semibold' },
+                          React.createElement('span', {
+                            className: proj.estimatedCost > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                          }, `R$ ${proj.estimatedCost.toFixed(2)}`)
+                        )
                       )
                     )
                   )
                 )
               )
-            )
-        ),
+          ),
 
-        // Projeção Mensal
-        React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6' },
-          React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Projeção dos Próximos 12 Meses'),
-          React.createElement('div', { className: 'overflow-x-auto' },
-            React.createElement('table', { className: 'min-w-full table-auto' },
-              React.createElement('thead', null,
-                React.createElement('tr', { className: 'bg-gray-50 dark:bg-gray-700' },
-                  React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Mês'),
-                  React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Manutenções Previstas'),
-                  React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Custo Total Estimado')
-                )
-              ),
-              React.createElement('tbody', { className: 'bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700' },
-                (analysis.monthlyProjection || []).map((proj, index) =>
-                  React.createElement('tr', { key: index },
-                    React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white' }, proj.month),
-                    React.createElement('td', { className: 'px-4 py-2 text-sm text-gray-900 dark:text-white' },
-                      proj.maintenances.length > 0
-                        ? proj.maintenances.map(m => m.type).join(', ')
-                        : 'Nenhuma'
-                    ),
-                    React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-semibold' },
-                      React.createElement('span', {
-                        className: proj.totalCost > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
-                      }, `R$ ${proj.totalCost.toFixed(2)}`)
+          // Projeção Mensal
+          React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6' },
+            React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Projeção dos Próximos 12 Meses'),
+            React.createElement('div', { className: 'overflow-x-auto' },
+              React.createElement('table', { className: 'min-w-full table-auto' },
+                React.createElement('thead', null,
+                  React.createElement('tr', { className: 'bg-gray-50 dark:bg-gray-700' },
+                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Mês'),
+                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Manutenções Previstas'),
+                    React.createElement('th', { className: 'px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider' }, 'Custo Total Estimado')
+                  )
+                ),
+                React.createElement('tbody', { className: 'bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700' },
+                  (analysis.monthlyProjection || []).map((proj, index) =>
+                    React.createElement('tr', { key: index },
+                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white' }, proj.month),
+                      React.createElement('td', { className: 'px-4 py-2 text-sm text-gray-900 dark:text-white' },
+                        proj.maintenances.length > 0
+                          ? proj.maintenances.map(m => m.type).join(', ')
+                          : 'Nenhuma'
+                      ),
+                      React.createElement('td', { className: 'px-4 py-2 whitespace-nowrap text-sm font-semibold' },
+                        React.createElement('span', {
+                          className: proj.totalCost > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                        }, `R$ ${proj.totalCost.toFixed(2)}`)
+                      )
                     )
                   )
                 )
               )
+            ),
+            React.createElement('div', { className: 'mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded' },
+              React.createElement('h5', { className: 'text-md font-semibold text-blue-900 dark:text-blue-100 mb-2' }, 'Comparação com Gastos Passados'),
+              React.createElement('div', { className: 'flex justify-between' },
+                React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Gasto Médio Mensal (últimos 12 meses):'),
+                React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${((analysis.totalSpent || 0) / 12).toFixed(2)}`)
+              ),
+              React.createElement('div', { className: 'flex justify-between mt-1' },
+                React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Projeção Média Mensal (próximos 12 meses):'),
+                React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${((analysis.monthlyProjection || []).reduce((sum, p) => sum + p.totalCost, 0) / 12).toFixed(2)}`)
+              )
             )
           ),
-          React.createElement('div', { className: 'mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded' },
-            React.createElement('h5', { className: 'text-md font-semibold text-blue-900 dark:text-blue-100 mb-2' }, 'Comparação com Gastos Passados'),
-            React.createElement('div', { className: 'flex justify-between' },
-              React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Gasto Médio Mensal (últimos 12 meses):'),
-              React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${((analysis.totalSpent || 0) / 12).toFixed(2)}`)
-            ),
-            React.createElement('div', { className: 'flex justify-between mt-1' },
-              React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Projeção Média Mensal (próximos 12 meses):'),
-              React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${((analysis.monthlyProjection || []).reduce((sum, p) => sum + p.totalCost, 0) / 12).toFixed(2)}`)
-            )
-          )
-        ),
 
-        // Fundo de Manutenção
-        React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6' },
-          React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Fundo de Manutenção'),
-          React.createElement('div', { className: 'space-y-3' },
-            React.createElement('div', { className: 'flex justify-between' },
-              React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Gasto Médio Mensal (últimos 12 meses):'),
-              React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `R$ ${((analysis.totalSpent || 0) / 12).toFixed(2)}`)
-            ),
-            React.createElement('div', { className: 'flex justify-between' },
-              React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Recomendação de Reserva Mensal:'),
-              React.createElement('span', { className: 'font-semibold text-blue-600 dark:text-blue-400' }, `R$ ${(((analysis.totalSpent || 0) / 12) * 1.2).toFixed(2)} (20% margem de segurança)`)
+          // Fundo de Manutenção
+          React.createElement('div', { className: 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mt-6' },
+            React.createElement('h4', { className: 'text-lg font-semibold text-gray-900 dark:text-white mb-4' }, 'Fundo de Manutenção'),
+            React.createElement('div', { className: 'space-y-3' },
+              React.createElement('div', { className: 'flex justify-between' },
+                React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Gasto Médio Mensal (últimos 12 meses):'),
+                React.createElement('span', { className: 'font-semibold text-gray-900 dark:text-white' }, `R$ ${((analysis.totalSpent || 0) / 12).toFixed(2)}`)
+              ),
+              React.createElement('div', { className: 'flex justify-between' },
+                React.createElement('span', { className: 'text-gray-700 dark:text-gray-300' }, 'Recomendação de Reserva Mensal:'),
+                React.createElement('span', { className: 'font-semibold text-blue-600 dark:text-blue-400' }, `R$ ${(((analysis.totalSpent || 0) / 12) * 1.2).toFixed(2)} (20% margem de segurança)`)
+              )
             )
           )
         )
