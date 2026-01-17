@@ -45,9 +45,9 @@
         const history = historyRes.data || [];
         setLastLogs(history.slice(0, 10));
 
-        // Define KM default se o veículo foi encontrado e o campo ainda está vazio
-        if (found && !form.km_performed) {
-          setForm(f => ({ ...f, km_performed: found.current_km }));
+        // Define KM default se o veículo foi encontrado
+        if (found) {
+          setForm(f => ({ ...f, km_performed: f.km_performed === '' ? found.current_km : f.km_performed }));
         }
 
       } catch (error) {
@@ -80,10 +80,10 @@
 
         alert('Manutenção registrada com sucesso!');
 
-        // Limpa formulário (mantendo a data de hoje) e recarrega dados
+        // Limpa formulário (mantendo a data de hoje e resetando KM para carregar a nova)
         setForm({
           maintenance_type_id: '',
-          km_performed: '', // Será atualizado no fetchData com a nova KM do veículo
+          km_performed: '',
           date_performed: new Date().toISOString().slice(0, 10),
           service_cost: 0,
           product_cost: 0,

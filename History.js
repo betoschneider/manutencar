@@ -18,6 +18,7 @@
     const [analysis, setAnalysis] = useState({});
     const [editingLogId, setEditingLogId] = useState(null);
     const [editingLogForm, setEditingLogForm] = useState({ maintenance_type_id: '', km_performed: 0, date_performed: '', notes: '', service_cost: 0, product_cost: 0, category: 'preventiva' });
+    const [categoryFilter, setCategoryFilter] = useState('todas');
 
     const fetchData = async () => {
       try {
@@ -199,85 +200,133 @@
         maintenanceHistory.length === 0
           ? React.createElement('p', { className: 'text-gray-600 dark:text-gray-400' }, 'Nenhuma manutenção registrada ainda.')
           : React.createElement('div', { className: 'space-y-6' },
-            // Organizar por categorias
-            ['preventiva', 'desgaste', 'corretiva'].map(category => {
-              const categoryLogs = maintenanceHistory.filter(log => log.category === category);
-              const categoryNames = { preventiva: 'Preventiva', desgaste: 'Desgaste', corretiva: 'Corretiva' };
-              return categoryLogs.length > 0 ? React.createElement('div', { key: category },
-                React.createElement('h4', { className: 'text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3' }, categoryNames[category]),
-                React.createElement('div', { className: 'space-y-3' },
-                  categoryLogs.map(item =>
-                    React.createElement('div', {
-                      key: item.id,
-                      className: 'border border-gray-200 dark:border-gray-700 rounded-lg p-4'
-                    },
-                      React.createElement('div', { className: 'flex justify-between items-start mb-2' },
+            // Filtro de Categoria
+            React.createElement('div', { className: 'flex items-center gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg' },
+              React.createElement('span', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300' }, 'Filtrar por Categoria:'),
+              React.createElement('div', { className: 'flex gap-2' },
+                ['todas', 'preventiva', 'desgaste', 'corretiva'].map(cat =>
+                  React.createElement('button', {
+                    key: cat,
+                    onClick: () => setCategoryFilter(cat),
+                    className: `px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === cat
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                      }`
+                  }, cat.charAt(0).toUpperCase() + cat.slice(1))
+                )
+              )
+            ),
+
+            // Lista Única Ordenada
+            React.createElement('div', { className: 'space-y-3' },
+              maintenanceHistory
+                .filter(log => categoryFilter === 'todas' || log.category === categoryFilter)
+                .sort((a, b) => new Date(b.date_performed) - new Date(a.date_performed))
+                .map(item =>
+                  React.createElement('div', {
+                    key: item.id,
+                    className: 'border border-gray-200 dark:border-gray-700 rounded-lg p-4'
+                  },
+                    React.createElement('div', { className: 'flex justify-between items-start mb-2' },
+                      React.createElement('div', null,
                         React.createElement('h5', { className: 'text-lg font-semibold text-gray-900 dark:text-white' }, item.maintenance_type || item.maintenance_type_name),
-                        React.createElement('div', { className: 'flex items-center gap-2' },
-                          React.createElement('span', { className: 'text-sm text-gray-600 dark:text-gray-400' },
-                            new Date(item.date_performed).toLocaleDateString('pt-BR')
-                          ),
-                          React.createElement('button', {
-                            onClick: () => {
-                              const type = maintenanceTypes.find(t => t.name === item.maintenance_type);
-                              setEditingLogId(item.id);
-                              setEditingLogForm({
-                                maintenance_type_id: type ? type.id : '',
-                                km_performed: item.km_performed,
-                                date_performed: item.date_performed.split('T')[0],
-                                notes: item.notes || '',
-                                service_cost: item.service_cost || 0,
-                                product_cost: item.product_cost || 0,
-                                category: item.category || 'preventiva'
-                              });
-                            },
-                            className: 'text-blue-500 hover:text-blue-700'
-                          }, React.createElement('span', { className: 'material-icons text-lg' }, 'edit')),
-                          React.createElement('button', {
-                            onClick: async () => {
-                              if (!confirm('Deseja realmente excluir este registro de manutenção?')) return;
-                              try {
-                                await axios.delete(`maintenance-logs/${item.id}`, { headers: { Authorization: `Bearer ${token}` } });
-                                fetchData();
-                              } catch (err) {
-                                alert('Erro ao excluir registro');
-                              }
-                            },
-                            className: 'text-red-500 hover:text-red-700'
-                          }, React.createElement('span', { className: 'material-icons text-lg' }, 'delete'))
-                        )
+                        React.createElement('span', {
+                          className: `text-xs px-2 py-0.5 rounded-full font-medium ${item.category === 'preventiva' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                              item.category === 'desgaste' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            }`
+                        }, (item.category || 'preventiva').toUpperCase())
                       ),
-                      React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4 text-sm' },
-                        React.createElement('div', null,
-                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'KM: '),
-                          React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.km_performed)
+                      React.createElement('div', { className: 'flex items-center gap-2' },
+                        React.createElement('span', { className: 'text-sm text-gray-600 dark:text-gray-400' },
+                          new Date(item.date_performed).toLocaleDateString('pt-BR')
                         ),
-                        React.createElement('div', null,
-                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Serviço: '),
-                          React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.service_cost || 0}`)
-                        ),
-                        React.createElement('div', null,
-                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Peças: '),
-                          React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.product_cost || 0}`)
-                        ),
-                        React.createElement('div', null,
-                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Total: '),
-                          React.createElement('span', {
-                            className: `font-semibold ${(item.service_cost || 0) + (item.product_cost || 0) > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`
+                        React.createElement('button', {
+                          onClick: () => {
+                            const type = maintenanceTypes.find(t => t.name === item.maintenance_type);
+                            setEditingLogId(item.id);
+                            setEditingLogForm({
+                              maintenance_type_id: type ? type.id : '',
+                              km_performed: item.km_performed,
+                              date_performed: item.date_performed.split('T')[0],
+                              notes: item.notes || '',
+                              service_cost: item.service_cost || 0,
+                              product_cost: item.product_cost || 0,
+                              category: item.category || 'preventiva'
+                            });
                           },
-                            `R$ ${(item.service_cost || 0) + (item.product_cost || 0)}`
-                          )
-                        )
-                      ),
-                      item.notes && React.createElement('div', { className: 'mt-2' },
-                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Observações: '),
-                        React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.notes)
+                          className: 'text-blue-500 hover:text-blue-700'
+                        }, React.createElement('span', { className: 'material-icons text-lg' }, 'edit')),
+                        React.createElement('button', {
+                          onClick: async () => {
+                            if (!confirm('Deseja realmente excluir este registro de manutenção?')) return;
+                            try {
+                              await axios.delete(`maintenance-logs/${item.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                              fetchData();
+                            } catch (err) {
+                              alert('Erro ao excluir registro');
+                            }
+                          },
+                          className: 'text-red-500 hover:text-red-700'
+                        }, React.createElement('span', { className: 'material-icons text-lg' }, 'delete'))
                       )
+                    ),
+                    React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4 text-sm' },
+                      React.createElement('div', null,
+                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'KM: '),
+                        React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.km_performed)
+                      ),
+                      React.createElement('div', null,
+                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Serviço: '),
+                        React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.service_cost || 0}`)
+                      ),
+                      React.createElement('div', null,
+                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Peças: '),
+                        React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.product_cost || 0}`)
+                      ),
+                      React.createElement('div', null,
+                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Total: '),
+                        React.createElement('span', {
+                          className: `font-semibold ${(item.service_cost || 0) + (item.product_cost || 0) > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`
+                        },
+                          `R$ ${(item.service_cost || 0) + (item.product_cost || 0)}`
+                        )
+                      )
+                    ),
+                    item.notes && React.createElement('div', { className: 'mt-2' },
+                      React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Observações: '),
+                      React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.notes)
                     )
                   )
                 )
-              ) : null;
-            }),
+            ),
+
+            // Consolidado por Categoria
+            React.createElement('div', { className: 'mt-10 pt-6 border-t border-gray-200 dark:border-gray-700' },
+              React.createElement('h4', { className: 'text-xl font-bold text-gray-900 dark:text-white mb-4' }, 'Consolidado por Categoria'),
+              React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
+                ['preventiva', 'desgaste', 'corretiva'].map(cat => {
+                  const filtered = maintenanceHistory.filter(log => log.category === cat);
+                  const total = filtered.reduce((sum, log) => sum + (log.service_cost || 0) + (log.product_cost || 0), 0);
+                  const count = filtered.length;
+                  const names = { preventiva: 'Preventiva', desgaste: 'Desgaste', corretiva: 'Corretiva' };
+                  const colors = { preventiva: 'text-green-600', desgaste: 'text-yellow-600', corretiva: 'text-red-600' };
+
+                  return React.createElement('div', { key: cat, className: 'bg-gray-50 dark:bg-gray-700/30 p-4 rounded-lg' },
+                    React.createElement('p', { className: `text-sm font-bold uppercase ${colors[cat]}` }, names[cat]),
+                    React.createElement('div', { className: 'mt-2 flex justify-between items-end' },
+                      React.createElement('div', null,
+                        React.createElement('p', { className: 'text-2xl font-bold text-gray-900 dark:text-white' }, `R$ ${total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`),
+                        React.createElement('p', { className: 'text-xs text-gray-500' }, `${count} manutenções`)
+                      ),
+                      React.createElement('span', { className: 'material-icons text-gray-300' },
+                        cat === 'preventiva' ? 'verified' : cat === 'desgaste' ? 'build' : 'report_problem'
+                      )
+                    )
+                  );
+                })
+              )
+            ),
 
             // Modal de Edição de Log de Manutenção
             editingLogId && React.createElement('div', { className: 'fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50' },
