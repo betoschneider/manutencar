@@ -94,7 +94,7 @@ def call_llm(prompt: str, provider: str, api_key: str) -> dict:
     elif provider == "gemini":
         genai.configure(api_key=api_key)
         # using the latest solid model
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(
             prompt,
             generation_config=genai.types.GenerationConfig(
