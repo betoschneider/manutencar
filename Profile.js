@@ -13,6 +13,44 @@
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
 
+    const [aiProvider, setAiProvider] = useState('');
+    const [aiApiKey, setAiApiKey] = useState('');
+    const [hasApiKey, setHasApiKey] = useState(false);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiMessage, setAiMessage] = useState('');
+
+    useEffect(() => {
+      const fetchAiConfig = async () => {
+        try {
+          const res = await axios.get('user-config', { headers: { Authorization: `Bearer ${token}` } });
+          setAiProvider(res.data.llm_provider || '');
+          setHasApiKey(res.data.has_api_key);
+        } catch (err) {
+          console.error('Erro ao buscar configs de IA', err);
+        }
+      };
+      fetchAiConfig();
+    }, [token]);
+
+    const handleAiSubmit = async (e) => {
+      e.preventDefault();
+      setAiLoading(true);
+      setAiMessage('');
+      try {
+        await axios.post('user-config', {
+          llm_provider: aiProvider || null,
+          llm_api_key: aiApiKey || null
+        }, { headers: { Authorization: `Bearer ${token}` } });
+        setAiMessage('Configurações de IA salvas com sucesso!');
+        if (aiApiKey) setHasApiKey(true);
+        setAiApiKey(''); // limpar após salvar por segurança
+      } catch (err) {
+        setAiMessage('Erro ao salvar as configurações de IA.');
+      } finally {
+        setAiLoading(false);
+      }
+    };
+
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
@@ -140,6 +178,48 @@
           disabled: loading,
           className: 'w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50'
         }, loading ? 'Salvando...' : 'Salvar Alterações'),
+
+        React.createElement('div', { className: 'pt-8 mt-8 border-t border-gray-200 dark:border-gray-700' },
+          React.createElement('h3', { className: 'text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-2' }, 'Configurações de IA (BYOK)'),
+          React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400 mb-4' },
+            'Traga sua própria chave (Bring Your Own Key) para ativar o assistente mecânico avançado e a normalização automática de nomenclatura.'
+          ),
+          
+          React.createElement('div', { className: 'space-y-4' },
+            React.createElement('div', null,
+              React.createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300' }, 'Provedor de IA'),
+              React.createElement('select', {
+                value: aiProvider,
+                onChange: (e) => setAiProvider(e.target.value),
+                className: 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white'
+              },
+                React.createElement('option', { value: '' }, 'Desativado'),
+                React.createElement('option', { value: 'openai' }, 'OpenAI (ChatGPT)'),
+                React.createElement('option', { value: 'gemini' }, 'Google Gemini'),
+                React.createElement('option', { value: 'claude' }, 'Anthropic Claude')
+              )
+            ),
+            React.createElement('div', null,
+              React.createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300' },
+                'API Key ', hasApiKey && React.createElement('span', { className: 'text-green-600 dark:text-green-400 text-xs ml-2' }, '✓ Chave já cadastrada')
+              ),
+              React.createElement('input', {
+                type: 'password',
+                value: aiApiKey,
+                onChange: (e) => setAiApiKey(e.target.value),
+                placeholder: hasApiKey ? '•••••••••••••••• (deixe em branco p/ manter)' : 'Cole sua API Key aqui...',
+                className: 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white'
+              })
+            ),
+            aiMessage && React.createElement('div', { className: aiMessage.includes('Erro') ? 'text-red-600 text-sm' : 'text-green-600 text-sm' }, aiMessage),
+            React.createElement('button', {
+              type: 'button',
+              onClick: handleAiSubmit,
+              disabled: aiLoading,
+              className: 'w-full flex justify-center py-2 px-4 border border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-md shadow-sm text-sm font-medium transition-colors disabled:opacity-50'
+            }, aiLoading ? 'Salvando IA...' : 'Salvar Configuração de IA')
+          )
+        ),
 
         React.createElement('div', { className: 'pt-8 mt-8 border-t border-red-200 dark:border-red-900' },
           React.createElement('h3', { className: 'text-lg font-bold text-red-600 dark:text-red-400 mb-2' }, 'Zona de Perigo'),

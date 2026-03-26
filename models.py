@@ -10,6 +10,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     vehicles = relationship("Vehicle", back_populates="owner")
+    config = relationship("UserConfig", back_populates="user", uselist=False)
 
 class Vehicle(Base):
     __tablename__ = "vehicles"
@@ -22,6 +23,7 @@ class Vehicle(Base):
     owner_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="vehicles")
     maintenance_logs = relationship("MaintenanceLog", back_populates="vehicle")
+    insights = relationship("VehicleInsights", back_populates="vehicle", uselist=False)
 
 class MaintenanceType(Base):
     __tablename__ = "maintenance_types"
@@ -50,3 +52,22 @@ class MaintenanceLog(Base):
     
     vehicle = relationship("Vehicle", back_populates="maintenance_logs")
     maintenance_type = relationship("MaintenanceType")
+
+class UserConfig(Base):
+    __tablename__ = "user_configs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    llm_provider = Column(String, nullable=True) # p. ex. 'openai', 'gemini', 'claude'
+    llm_api_key_encrypted = Column(String, nullable=True)
+    
+    user = relationship("User", back_populates="config")
+
+class VehicleInsights(Base):
+    __tablename__ = "vehicle_insights"
+    id = Column(Integer, primary_key=True, index=True)
+    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), unique=True)
+    chronic_issues = Column(String, nullable=True) # armazenaremos como JSON string
+    suggested_maintenance = Column(String, nullable=True) # armazenaremos como JSON string
+    generated_at = Column(DateTime, default=datetime.utcnow)
+    
+    vehicle = relationship("Vehicle", back_populates="insights")

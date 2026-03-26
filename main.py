@@ -11,8 +11,10 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
 import os
+import json
 
 import models
+import ai_service
 from database import SessionLocal, engine
 
 # Cria as tabelas
@@ -107,6 +109,18 @@ class MaintenanceLogUpdate(BaseModel):
     service_cost: Optional[float] = None
     product_cost: Optional[float] = None
     category: Optional[str] = None
+
+class UserConfigUpdate(BaseModel):
+    llm_provider: Optional[str] = None
+    llm_api_key: Optional[str] = None
+
+class UserConfigResponse(BaseModel):
+    llm_provider: Optional[str] = None
+    has_api_key: bool
+
+class NormalizeRequest(BaseModel):
+    maintenance_names: List[str]
+
 
 # --- Funções Auxiliares ---
 def create_access_token(data: dict):
@@ -531,3 +545,115 @@ def get_stats(user: models.User = Depends(get_current_user), db: Session = Depen
             monthly_data[key]["count"] += 1
             
     return sorted(monthly_data.values(), key=lambda x: x["sort_key"])
+
+# --- Rotas de Inteligência Artificial ---
+
+@app.get("/user-config", response_model=UserConfigResponse)
+def get_user_config(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    config = db.query(models.UserConfig).filter(models.UserConfig.user_id == user.id).first()
+    if not config:
+        return {"llm_provider": None, "has_api_key": False}
+    return {
+        "llm_provider": config.llm_provider,
+        "has_api_key": bool(config.llm_api_key_encrypted)
+    }
+
+@app.post("/user-config")
+def update_user_config(config_update: UserConfigUpdate, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    config = db.query(models.UserConfig).filter(models.UserConfig.user_id == user.id).first()
+    if not config:
+        config = models.UserConfig(user_id=user.id)
+        db.add(config)
+    
+    if config_update.llm_provider is not None:
+        config.llm_provider = config_update.llm_provider
+    if config_update.llm_api_key is not None:
+        if config_update.llm_api_key.strip() == "":
+            config.llm_api_key_encrypted = None
+        else:
+            config.llm_api_key_encrypted = ai_service.encrypt_token(config_update.llm_api_key)
+            
+    db.commit()
+    return {"msg": "Configurações de IA salvas com sucesso"}
+
+@app.get("/vehicles/{vehicle_id}/insights")
+def get_vehicle_insights(vehicle_id: int, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Check ownership
+    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == vehicle_id, models.Vehicle.owner_id == user.id).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Veículo não encontrado")
+    
+    insight = db.query(models.VehicleInsights).filter(models.VehicleInsights.vehicle_id == vehicle_id).first()
+    if not insight:
+        return {"chronic_issues": [], "suggested_maintenance": [], "generated_at": None}
+    
+    return {
+        "chronic_issues": json.loads(insight.chronic_issues) if insight.chronic_issues else [],
+        "suggested_maintenance": json.loads(insight.suggested_maintenance) if insight.suggested_maintenance else [],
+        "generated_at": insight.generated_at
+    }
+
+@app.post("/vehicles/{vehicle_id}/insights")
+def generate_insights(vehicle_id: int, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    config = db.query(models.UserConfig).filter(models.UserConfig.user_id == user.id).first()
+    if not config or not config.llm_provider or not config.llm_api_key_encrypted:
+        raise HTTPException(status_code=400, detail="Configuração de IA ausente no perfil. Configure na aba de Perfil.")
+    
+    vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == vehicle_id, models.Vehicle.owner_id == user.id).first()
+    if not vehicle:
+        raise HTTPException(status_code=404, detail="Veículo não encontrado")
+    
+    # Get history
+    logs = db.query(models.MaintenanceLog)\
+        .filter(models.MaintenanceLog.vehicle_id == vehicle_id)\
+        .order_by(models.MaintenanceLog.date_performed.asc())\
+        .all()
+    
+    history_data = []
+    for log in logs:
+        m_type_name = log.maintenance_type.name if log.maintenance_type else "Desconhecido"
+        history_data.append({
+            "maintenance_type": m_type_name,
+            "date_performed": log.date_performed,
+            "km_performed": log.km_performed or 0
+        })
+    
+    # Call AI
+    result = ai_service.generate_vehicle_insights(
+        make=vehicle.make,
+        model=vehicle.model,
+        year=vehicle.year,
+        current_km=vehicle.current_km,
+        history=history_data,
+        provider=config.llm_provider,
+        encrypted_key=config.llm_api_key_encrypted
+    )
+    
+    # Save to Cache
+    insight = db.query(models.VehicleInsights).filter(models.VehicleInsights.vehicle_id == vehicle_id).first()
+    if not insight:
+        insight = models.VehicleInsights(vehicle_id=vehicle_id)
+        db.add(insight)
+    
+    insight.chronic_issues = json.dumps(result.get("chronic_issues", []))
+    insight.suggested_maintenance = json.dumps(result.get("suggested_maintenance", []))
+    insight.generated_at = datetime.utcnow()
+    db.commit()
+    
+    return result
+
+@app.post("/maintenance-logs/normalize")
+def normalize_maintenance(req: NormalizeRequest, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    config = db.query(models.UserConfig).filter(models.UserConfig.user_id == user.id).first()
+    if not config or not config.llm_provider or not config.llm_api_key_encrypted:
+        raise HTTPException(status_code=400, detail="Configuração de IA ausente no perfil.")
+    
+    if not req.maintenance_names:
+         raise HTTPException(status_code=400, detail="Lista de nomes vazia.")
+         
+    result = ai_service.normalize_maintenance_name(
+        input_names=req.maintenance_names,
+        provider=config.llm_provider,
+        encrypted_key=config.llm_api_key_encrypted
+    )
+    return result

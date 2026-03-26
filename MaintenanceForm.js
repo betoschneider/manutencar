@@ -27,6 +27,11 @@
       notes: '',
       category: 'preventiva'
     });
+    
+    // AI Normalization state
+    const [isNewType, setIsNewType] = useState(false);
+    const [customMaintenanceName, setCustomMaintenanceName] = useState('');
+    const [normalizing, setNormalizing] = useState(false);
 
     const fetchData = async () => {
       try {
@@ -61,14 +66,62 @@
       }
     }, [token, id]);
 
+    const handleNormalize = async () => {
+      if (!customMaintenanceName.trim()) return;
+      setNormalizing(true);
+      try {
+        const res = await axios.post('/maintenance-logs/normalize', { maintenance_names: [customMaintenanceName] }, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.data && res.data.normalized_name) {
+          const normName = res.data.normalized_name;
+          setCustomMaintenanceName(normName);
+          
+          // Verifica se já não existe
+          const existing = maintenanceTypes.find(t => t.name.toLowerCase() === normName.toLowerCase());
+          if (existing) {
+            setForm({ ...form, maintenance_type_id: existing.id });
+            setIsNewType(false);
+            setCustomMaintenanceName('');
+            alert(`A IA normalizou para "${normName}", que já estava na sua lista e foi selecionado!`);
+          }
+        }
+      } catch (err) {
+        console.log('IA não configurada ou erro ao normalizar.', err);
+      } finally {
+        setNormalizing(false);
+      }
+    };
+
     const submitMaintenance = async () => {
-      if (!form.maintenance_type_id) {
+      let typeId = form.maintenance_type_id;
+
+      if (isNewType) {
+        if (!customMaintenanceName.trim()) {
+          alert('Informe o nome da nova manutenção');
+          return;
+        }
+        try {
+          const mtRes = await axios.post('/maintenance-types', {
+            name: customMaintenanceName.trim(),
+            default_interval_km: 10000,
+            default_interval_months: 12
+          }, { headers: { Authorization: `Bearer ${token}` } });
+          typeId = mtRes.data.id;
+          
+          // Re-fetch types
+          const typesRes = await axios.get('maintenance-types', { headers: { Authorization: `Bearer ${token}` } });
+          setMaintenanceTypes(typesRes.data || []);
+        } catch (err) {
+          alert(err?.response?.data?.detail || 'Erro ao criar novo tipo de manutenção');
+          return;
+        }
+      } else if (!typeId) {
         alert('Escolha um tipo de manutenção');
         return;
       }
+      
       try {
         const payload = {
-          maintenance_type_id: parseInt(form.maintenance_type_id, 10),
+          maintenance_type_id: parseInt(typeId, 10),
           km_performed: parseInt(form.km_performed || 0, 10),
           date_performed: new Date(form.date_performed).toISOString(),
           notes: form.notes,
@@ -90,6 +143,8 @@
           notes: '',
           category: 'preventiva'
         });
+        setIsNewType(false);
+        setCustomMaintenanceName('');
         await fetchData();
 
       } catch (err) {
@@ -122,13 +177,33 @@
           React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-4 gap-4 mb-4' },
             React.createElement('div', { className: 'flex flex-col' },
               React.createElement('label', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300 mb-1' }, 'Tipo de Manutenção'),
-              React.createElement('select', {
+              !isNewType ? React.createElement('select', {
                 value: form.maintenance_type_id,
-                onChange: (e) => setForm({ ...form, maintenance_type_id: e.target.value }),
+                onChange: (e) => {
+                  if (e.target.value === 'NEW') setIsNewType(true);
+                  else setForm({ ...form, maintenance_type_id: e.target.value });
+                },
                 className: 'px-3 py-2 rounded border dark:bg-gray-800 dark:border-gray-600 dark:text-white'
               },
                 React.createElement('option', { value: '' }, 'Selecione...'),
-                (Array.isArray(maintenanceTypes) ? maintenanceTypes : []).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })).map(t => React.createElement('option', { key: t.id, value: t.id }, t.name))
+                (Array.isArray(maintenanceTypes) ? maintenanceTypes : []).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })).map(t => React.createElement('option', { key: t.id, value: t.id }, t.name)),
+                React.createElement('option', { value: 'NEW', className: 'font-bold text-blue-600' }, '+ Preencher outro (Automático via IA)')
+              ) : React.createElement('div', { className: 'flex gap-2' },
+                React.createElement('div', { className: 'relative flex-1' },
+                  React.createElement('input', {
+                    type: 'text',
+                    value: customMaintenanceName,
+                    onChange: (e) => setCustomMaintenanceName(e.target.value),
+                    onBlur: handleNormalize,
+                    placeholder: 'Ex: troca das pastilha...',
+                    className: 'w-full px-3 py-2 rounded border dark:bg-gray-800 dark:border-gray-600 dark:text-white pr-8'
+                  }),
+                  normalizing && React.createElement('span', { className: 'absolute right-2 top-2 material-icons text-indigo-500 animate-spin text-sm' }, 'autorenew')
+                ),
+                React.createElement('button', {
+                  onClick: () => { setIsNewType(false); setCustomMaintenanceName(''); },
+                  className: 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 px-3 rounded text-gray-700 dark:text-gray-200'
+                }, 'X')
               )
             ),
             React.createElement('div', { className: 'flex flex-col' },
