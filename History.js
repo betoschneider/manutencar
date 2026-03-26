@@ -19,6 +19,11 @@
     const [editingLogId, setEditingLogId] = useState(null);
     const [editingLogForm, setEditingLogForm] = useState({ maintenance_type_id: '', km_performed: 0, date_performed: '', notes: '', service_cost: 0, product_cost: 0, category: 'preventiva' });
     const [categoryFilter, setCategoryFilter] = useState('todas');
+    
+    // AI State
+    const [aiInsights, setAiInsights] = useState(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState('');
 
     useEffect(() => {
       const style = document.createElement('style');
@@ -44,10 +49,11 @@
 
     const fetchData = async () => {
       try {
-        const [historyRes, vehiclesRes, typesRes] = await Promise.all([
+        const [historyRes, vehiclesRes, typesRes, insightsRes] = await Promise.all([
           axios.get(`vehicles/${id}/history`, { headers: { Authorization: `Bearer ${token}` } }),
           axios.get('vehicles', { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get('maintenance-types', { headers: { Authorization: `Bearer ${token}` } })
+          axios.get('maintenance-types', { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`vehicles/${id}/insights`, { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: null }))
         ]);
         const vid = parseInt(id, 10);
         const found = (vehiclesRes.data || []).find(v => v.id === vid);
@@ -56,6 +62,10 @@
         const mTypes = typesRes.data || [];
         setMaintenanceHistory(history);
         setMaintenanceTypes(mTypes);
+        
+        if (insightsRes && insightsRes.data && insightsRes.data.generated_at) {
+          setAiInsights(insightsRes.data);
+        }
 
         // Calcular análises
         const now = new Date();
@@ -138,6 +148,19 @@
         });
       } catch (error) {
         console.error("Erro ao buscar dados", error);
+      }
+    };
+
+    const generateInsights = async () => {
+      setAiLoading(true);
+      setAiError('');
+      try {
+        const res = await axios.post(`vehicles/${id}/insights`, {}, { headers: { Authorization: `Bearer ${token}` }});
+        setAiInsights(res.data);
+      } catch (err) {
+        setAiError(err?.response?.data?.detail || 'Erro ao gerar insights.');
+      } finally {
+        setAiLoading(false);
       }
     };
 
@@ -446,6 +469,44 @@
               )
             )
           ),
+
+        // Seção Assistente IA (BYOK)
+        React.createElement('div', { className: 'no-print mb-8' },
+          React.createElement('div', { className: 'bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-md p-6 text-white' },
+            React.createElement('div', { className: 'flex justify-between items-center mb-4' },
+              React.createElement('h3', { className: 'text-xl font-bold flex items-center gap-2' }, 
+                React.createElement('span', { className: 'material-icons' }, 'auto_awesome'), 
+                'Assistente Mecânico IA'
+              ),
+              React.createElement('button', {
+                onClick: generateInsights,
+                disabled: aiLoading,
+                className: 'bg-white text-indigo-600 hover:bg-gray-100 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 shadow-sm'
+              }, aiLoading ? 'Gerando...' : (aiInsights ? 'Atualizar Insights' : 'Gerar Insights Automáticos'))
+            ),
+            
+            aiError && React.createElement('div', { className: 'bg-red-500/30 text-white p-3 rounded mb-4 text-sm' }, aiError),
+            
+            aiInsights ? React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6 mt-4' },
+              React.createElement('div', { className: 'bg-white/10 rounded p-5' },
+                React.createElement('h4', { className: 'font-bold mb-3 flex items-center gap-2 text-red-200' }, 
+                    React.createElement('span', { className: 'material-icons text-red-300' }, 'warning'), 'Problemas Crônicos'
+                ),
+                React.createElement('ul', { className: 'list-disc pl-5 space-y-2 text-sm leading-relaxed' },
+                  (aiInsights.chronic_issues || []).map((issue, idx) => React.createElement('li', { key: idx }, issue))
+                )
+              ),
+              React.createElement('div', { className: 'bg-white/10 rounded p-5' },
+                React.createElement('h4', { className: 'font-bold mb-3 flex items-center gap-2 text-green-200' }, 
+                    React.createElement('span', { className: 'material-icons text-green-300' }, 'build_circle'), 'Manutenções Sugeridas'
+                ),
+                React.createElement('ul', { className: 'list-disc pl-5 space-y-2 text-sm leading-relaxed' },
+                  (aiInsights.suggested_maintenance || []).map((maint, idx) => React.createElement('li', { key: idx }, maint))
+                )
+              )
+            ) : (!aiLoading && React.createElement('p', { className: 'text-indigo-100 text-sm' }, 'Ao configurar sua API Key (OpenAI, Gemini ou Claude) no Perfil e clicar em Gerar Insights, a IA irá analisar todo o histórico deste veículo de acordo com os problemas crônicos comuns deste modelo e sugerir manutenções preventivas urgentes!'))
+          )
+        ),
 
         // Seção de Análises
         React.createElement('div', { className: 'no-print' },
