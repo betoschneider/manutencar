@@ -476,7 +476,14 @@
             React.createElement('div', { className: 'flex justify-between items-center mb-4' },
               React.createElement('h3', { className: 'text-xl font-bold flex items-center gap-2' }, 
                 React.createElement('span', { className: 'material-icons' }, 'auto_awesome'), 
-                'Assistente Mecânico IA'
+                'Assistente Mecânico IA',
+                React.createElement('a', { 
+                  href: 'https://aistudio.google.com/', 
+                  target: '_blank', 
+                  rel: 'noopener noreferrer',
+                  title: 'Obtenha seu token gratuito do Gemini no Google AI Studio e cadastre em seu Perfil.',
+                  className: 'text-indigo-200 hover:text-white transition-colors flex items-center ml-1'
+                }, React.createElement('span', { className: 'material-icons text-sm' }, 'info_outline'))
               ),
               React.createElement('button', {
                 onClick: generateInsights,
@@ -504,7 +511,15 @@
                   (aiInsights.suggested_maintenance || []).map((maint, idx) => React.createElement('li', { key: idx }, maint))
                 )
               )
-            ) : (!aiLoading && React.createElement('p', { className: 'text-indigo-100 text-sm' }, 'Ao configurar sua API Key (OpenAI, Gemini ou Claude) no Perfil e clicar em Gerar Insights, a IA irá analisar todo o histórico deste veículo de acordo com os problemas crônicos comuns deste modelo e sugerir manutenções preventivas urgentes!'))
+            ) : (!aiLoading && React.createElement('p', { className: 'text-indigo-100 text-sm mt-4' }, 
+              'Ao configurar sua API Key (OpenAI, Gemini ou Claude) no Perfil e clicar em Gerar Insights, a IA irá analisar todo o histórico deste veículo de acordo com os problemas crônicos comuns deste modelo e sugerir manutenções preventivas urgentes! ',
+              React.createElement('a', {
+                href: 'https://aistudio.google.com/',
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                className: 'underline hover:text-white font-medium ml-1'
+              }, 'Obtenha seu token gratuito do Gemini aqui.')
+            ))
           )
         ),
 

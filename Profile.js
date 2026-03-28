@@ -182,7 +182,13 @@
         React.createElement('div', { className: 'pt-8 mt-8 border-t border-gray-200 dark:border-gray-700' },
           React.createElement('h3', { className: 'text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-2' }, 'Configurações de IA (BYOK)'),
           React.createElement('p', { className: 'text-sm text-gray-600 dark:text-gray-400 mb-4' },
-            'Traga sua própria chave (Bring Your Own Key) para ativar o assistente mecânico avançado e a normalização automática de nomenclatura.'
+            'Traga sua própria chave (Bring Your Own Key) para ativar o assistente mecânico avançado e a normalização automática de nomenclatura. ',
+            React.createElement('a', {
+              href: 'https://aistudio.google.com/',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+              className: 'text-indigo-600 dark:text-indigo-400 hover:underline font-medium'
+            }, 'Clique aqui para gerar um token gratuito do Google Gemini.')
           ),
           
           React.createElement('div', { className: 'space-y-4' },
