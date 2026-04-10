@@ -40,10 +40,19 @@ def get_insights_prompt(make: str, model: str, year: int, current_km: int, histo
     if not history:
         history_text = "Nenhuma manutenção registrada ainda."
     else:
-        history_text = "\n".join([
-            f"- {h['date_performed'].strftime('%Y-%m-%d')} ({h['km_performed']}km): {h['maintenance_type']}" 
-            for h in history
-        ])
+        history_text_lines = []
+        for h in history:
+            dp = h['date_performed']
+            if isinstance(dp, str):
+                dp_str = dp.split('T')[0]
+            elif hasattr(dp, 'strftime'):
+                dp_str = dp.strftime('%Y-%m-%d')
+            else:
+                dp_str = str(dp) or "Data desconhecida"
+            km = h.get('km_performed', 0)
+            m_type = h.get('maintenance_type', 'Desconhecido')
+            history_text_lines.append(f"- {dp_str} ({km}km): {m_type}")
+        history_text = "\n".join(history_text_lines)
     
     return f"""Aja como um mecânico especialista premium da marca {make}.
 O cliente tem o veículo {make} {model} ano {year} com {current_km}km.
