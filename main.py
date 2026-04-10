@@ -635,8 +635,9 @@ def generate_insights(vehicle_id: int, user: models.User = Depends(get_current_u
         insight = models.VehicleInsights(vehicle_id=vehicle_id)
         db.add(insight)
     
-    insight.chronic_issues = json.dumps(result.get("chronic_issues", []))
-    insight.suggested_maintenance = json.dumps(result.get("suggested_maintenance", []))
+    result_dict = result if isinstance(result, dict) else {}
+    insight.chronic_issues = json.dumps(result_dict.get("chronic_issues", []))
+    insight.suggested_maintenance = json.dumps(result_dict.get("suggested_maintenance", []))
     insight.generated_at = datetime.utcnow()
     db.commit()
     

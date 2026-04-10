@@ -80,15 +80,17 @@ Você DEVE retornar APENAS um objeto JSON válido, sem nenhum texto adicional fo
   "normalized_name": "Nome Padronizado Único"
 }}"""
 
+import re
+
 def clean_json_response(content: str) -> dict:
     content = content.strip()
-    if content.startswith("```json"):
-        content = content[7:]
-    elif content.startswith("```"):
-        content = content[3:]
-    if content.endswith("```"):
-        content = content[:-3]
-    return json.loads(content.strip())
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    if match:
+        content = match.group(0)
+    try:
+        return json.loads(content)
+    except Exception:
+        raise ValueError("Resposta não é um JSON válido.")
 
 def call_llm(prompt: str, provider: str, api_key: str) -> dict:
     if provider == "openai":
@@ -98,7 +100,7 @@ def call_llm(prompt: str, provider: str, api_key: str) -> dict:
             messages=[{"role": "user", "content": prompt}],
             response_format={ "type": "json_object" }
         )
-        return json.loads(response.choices[0].message.content)
+        return clean_json_response(response.choices[0].message.content)
         
     elif provider == "gemini":
         genai.configure(api_key=api_key)
@@ -110,7 +112,7 @@ def call_llm(prompt: str, provider: str, api_key: str) -> dict:
                 response_mime_type="application/json",
             )
         )
-        return json.loads(response.text)
+        return clean_json_response(response.text)
         
     elif provider == "claude":
         client = anthropic.Anthropic(api_key=api_key)
@@ -134,7 +136,7 @@ def generate_vehicle_insights(make: str, model: str, year: int, current_km: int,
     try:
         return call_llm(prompt, provider, decrypted_key)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao se comunicar com a IA ({provider}): {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Erro ao se comunicar com a IA ({provider}): {str(e)}")
 
 def normalize_maintenance_name(input_names: list, provider: str, encrypted_key: str):
     decrypted_key = decrypt_token(encrypted_key)
@@ -144,4 +146,4 @@ def normalize_maintenance_name(input_names: list, provider: str, encrypted_key: 
     try:
         return call_llm(prompt, provider, decrypted_key)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao se comunicar com a IA ({provider}): {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Erro ao se comunicar com a IA ({provider}): {str(e)}")
