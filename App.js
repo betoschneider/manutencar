@@ -104,6 +104,7 @@
               const SafeComp = (comp) => comp ? React.createElement(comp) : React.createElement('div', { className: 'p-8 text-center text-red-600' }, 'Erro: Componente não carregado. Verifique se o arquivo .js foi incluído no index.html.');
 
               if (routeMatch('/admin').ok) return token ? SafeComp(window.Admin) : SafeComp(window.Login);
+              if (routeMatch('/global').ok) return SafeComp(window.SystemDashboard);
               if (routeMatch('/profile').ok) return token ? SafeComp(window.Profile) : SafeComp(window.Login);
               if (routeMatch('/register').ok) return !token ? SafeComp(window.Register) : SafeComp(window.Dashboard);
               if (routeMatch('/login').ok) return !token ? SafeComp(window.Login) : SafeComp(window.Dashboard);
@@ -159,6 +160,7 @@
               React.createElement('div', { className: 'container mx-auto mt-8 px-4 flex-grow' },
                 React.createElement(RoutesComp, null,
                   React.createElement(RouteComp, { path: '/admin', element: token ? React.createElement(window.Admin) : React.createElement(NavigateComp, { to: '/login' }) }),
+                  React.createElement(RouteComp, { path: '/global', element: window.SystemDashboard ? React.createElement(window.SystemDashboard) : React.createElement('div', null, 'Componente não carregado') }),
                   React.createElement(RouteComp, { path: '/vehicle/:id/history', element: token ? React.createElement(window.History) : React.createElement(NavigateComp, { to: '/login' }) }),
                   React.createElement(RouteComp, { path: '/vehicle/:id/maintenance', element: token ? (window.MaintenanceForm ? React.createElement(window.MaintenanceForm) : React.createElement('div', null, 'Erro: MaintenanceForm não carregado')) : React.createElement(NavigateComp, { to: '/login' }) }),
                   React.createElement(RouteComp, { path: '/register', element: !token ? React.createElement(window.Register) : React.createElement(NavigateComp, { to: '/' }) }),

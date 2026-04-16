@@ -12,6 +12,9 @@ from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
 import os
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import models
 import ai_service
@@ -19,6 +22,22 @@ from database import SessionLocal, engine
 
 # Cria as tabelas
 models.Base.metadata.create_all(bind=engine)
+
+# Auto-migration para adicionar colunas faltantes em bancos antigos (como os de produção)
+from sqlalchemy import text
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE users ADD COLUMN created_at DATETIME;"))
+        conn.execute(text("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL;"))
+        conn.commit()
+    except Exception:
+        pass # Coluna já existe
+
+    try:
+        conn.execute(text("ALTER TABLE users ADD COLUMN last_login DATETIME;"))
+        conn.commit()
+    except Exception:
+        pass # Coluna já existe
 
 app = FastAPI(title="ManutenCar API")
 
@@ -209,6 +228,9 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     user = db.query(models.User).filter(func.lower(models.User.email) == email_clean).first()
     if not user or not pwd_context.verify(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Login incorreto")
+    
+    user.last_login = datetime.utcnow()
+    db.commit()
     
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -553,6 +575,46 @@ def get_stats(user: models.User = Depends(get_current_user), db: Session = Depen
     return sorted(monthly_data.values(), key=lambda x: x["sort_key"])
 
 # --- Rotas de Inteligência Artificial ---
+
+@app.get("/global-stats")
+def get_global_stats(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    expected_token = os.getenv("GLOBAL_DASHBOARD_TOKEN")
+    if not expected_token or token != expected_token:
+        raise HTTPException(status_code=403, detail="Acesso negado ao dashboard global")
+    
+    total_users = db.query(models.User).count()
+    
+    # Tempo médio de utilização em dias
+    avg_usage_days = 0
+    if total_users > 0:
+        users = db.query(models.User.created_at).all()
+        now = datetime.utcnow()
+        total_days = sum((now - u.created_at).days for u in users if u.created_at)
+        avg_usage_days = round(total_days / total_users, 1)
+
+    # Tempo da última utilização (ou login)
+    last_login_record = db.query(models.User).filter(models.User.last_login.isnot(None)).order_by(models.User.last_login.desc()).first()
+    last_log_record = db.query(models.MaintenanceLog).order_by(models.MaintenanceLog.date_performed.desc()).first()
+    
+    last_usage_time = None
+    if last_login_record and last_login_record.last_login:
+        last_usage_time = last_login_record.last_login
+    if last_log_record and last_log_record.date_performed:
+        if not last_usage_time or last_log_record.date_performed > last_usage_time:
+            last_usage_time = last_log_record.date_performed
+
+    ai_users_count = db.query(models.UserConfig).filter(models.UserConfig.llm_api_key_encrypted.isnot(None)).count()
+    total_vehicles = db.query(models.Vehicle).count()
+    avg_vehicles = round(total_vehicles / total_users, 1) if total_users > 0 else 0
+
+    return {
+        "total_users": total_users,
+        "avg_usage_days": avg_usage_days,
+        "last_usage_time": last_usage_time,
+        "ai_users_count": ai_users_count,
+        "avg_vehicles_per_user": avg_vehicles,
+        "total_vehicles": total_vehicles
+    }
 
 @app.get("/user-config", response_model=UserConfigResponse)
 def get_user_config(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
