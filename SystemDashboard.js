@@ -27,8 +27,8 @@
         console.error('Erro ao buscar stats globais', err);
         setError('Token inválido ou sem permissão de acesso.');
         if (err.response && err.response.status === 403) {
-           sessionStorage.removeItem('globalDashboardToken');
-           setToken('');
+          sessionStorage.removeItem('globalDashboardToken');
+          setToken('');
         }
       } finally {
         setLoading(false);
@@ -66,7 +66,7 @@
                   type: 'password',
                   required: true,
                   className: 'appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700',
-                  placeholder: 'Token de Acesso (GLOBAL_DASHBOARD_TOKEN)',
+                  placeholder: 'Token de Acesso',
                   value: inputToken,
                   onChange: (e) => setInputToken(e.target.value)
                 })
@@ -94,62 +94,62 @@
           className: 'px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded font-medium transition-colors shadow-sm'
         }, 'Sair do Dashboard')
       ),
-      
+
       error && React.createElement('div', { className: 'mb-4 p-4 bg-red-100 text-red-700 rounded-md shadow-sm' }, error),
 
-      !stats && loading ? 
+      !stats && loading ?
         React.createElement('div', { className: 'text-center py-20' },
           React.createElement('div', { className: 'animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto' }),
           React.createElement('p', { className: 'mt-4 text-gray-500' }, 'Carregando estatísticas...')
-        ) 
-      : stats ? 
-        React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' },
-          
-          React.createElement(StatCard, {
-            title: 'Total de Usuários',
-            value: stats.total_users,
-            icon: 'group',
-            color: 'bg-blue-500'
-          }),
-          
-          React.createElement(StatCard, {
-            title: 'Média de Tempo de Uso',
-            value: `${stats.avg_usage_days} dias`,
-            subtitle: 'Baseado na data de criação',
-            icon: 'history',
-            color: 'bg-purple-500'
-          }),
-          
-          React.createElement(StatCard, {
-            title: 'Última Utilização',
-            value: stats.last_usage_time ? new Date(stats.last_usage_time).toLocaleString('pt-BR') : 'Sem dados',
-            icon: 'schedule',
-            color: 'bg-green-500'
-          }),
-          
-          React.createElement(StatCard, {
-            title: 'Usuários com IA (BYOK)',
-            value: stats.ai_users_count,
-            subtitle: `Representa ${stats.total_users ? Math.round((stats.ai_users_count / stats.total_users) * 100) : 0}% da base`,
-            icon: 'smart_toy',
-            color: 'bg-indigo-500'
-          }),
-          
-          React.createElement(StatCard, {
-            title: 'Total de Veículos cadastrados',
-            value: stats.total_vehicles,
-            icon: 'directions_car',
-            color: 'bg-yellow-500'
-          }),
-          
-          React.createElement(StatCard, {
-            title: 'Média de Veículos',
-            value: `${stats.avg_vehicles_per_user} por usuário`,
-            icon: 'pie_chart',
-            color: 'bg-orange-500'
-          })
+        )
+        : stats ?
+          React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' },
 
-        ) : null
+            React.createElement(StatCard, {
+              title: 'Total de Usuários',
+              value: stats.total_users,
+              icon: 'group',
+              color: 'bg-blue-500'
+            }),
+
+            React.createElement(StatCard, {
+              title: 'Média de Tempo de Uso',
+              value: `${stats.avg_usage_days} dias`,
+              subtitle: 'Baseado na data de criação',
+              icon: 'history',
+              color: 'bg-purple-500'
+            }),
+
+            React.createElement(StatCard, {
+              title: 'Última Utilização',
+              value: stats.last_usage_time ? new Date(stats.last_usage_time).toLocaleString('pt-BR') : 'Sem dados',
+              icon: 'schedule',
+              color: 'bg-green-500'
+            }),
+
+            React.createElement(StatCard, {
+              title: 'Usuários com IA (BYOK)',
+              value: stats.ai_users_count,
+              subtitle: `Representa ${stats.total_users ? Math.round((stats.ai_users_count / stats.total_users) * 100) : 0}% da base`,
+              icon: 'smart_toy',
+              color: 'bg-indigo-500'
+            }),
+
+            React.createElement(StatCard, {
+              title: 'Total de Veículos cadastrados',
+              value: stats.total_vehicles,
+              icon: 'directions_car',
+              color: 'bg-yellow-500'
+            }),
+
+            React.createElement(StatCard, {
+              title: 'Média de Veículos',
+              value: `${stats.avg_vehicles_per_user} por usuário`,
+              icon: 'pie_chart',
+              color: 'bg-orange-500'
+            })
+
+          ) : null
     );
   }
 

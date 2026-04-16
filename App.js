@@ -85,6 +85,9 @@
       }
     }, [token, user]);
 
+    const isGlobalRoute = window.location.pathname === '/global';
+    const showUserNav = token && !isGlobalRoute;
+
     return React.createElement(window.AuthContext.Provider, { value: { token, user, login, logout } },
       React.createElement('div', { className: 'min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300' },
         useFallbackRouter ? (
@@ -123,15 +126,15 @@
                         onClick: toggleColorMode,
                         className: 'p-2 rounded-full hover:bg-blue-700 focus:outline-none no-print'
                       }, React.createElement('span', { className: 'material-icons align-middle' }, mode === 'dark' ? 'brightness_7' : 'brightness_4')),
-                      token && user && React.createElement('div', { className: 'text-right mr-4 no-print' },
+                      showUserNav && user && React.createElement('div', { className: 'text-right mr-4 no-print' },
                         React.createElement('div', { className: 'text-sm font-medium' }, user.name || user.email),
                         React.createElement('div', { className: 'text-xs opacity-75' }, user.email)
                       ),
-                      token && React.createElement('button', {
+                      showUserNav && React.createElement('button', {
                         onClick: () => window.location.href = '/profile',
                         className: 'px-3 py-2 hover:bg-blue-700 rounded font-medium text-sm no-print'
                       }, 'Perfil'),
-                      token && React.createElement('button', { onClick: logout, className: 'px-4 py-2 hover:bg-blue-700 rounded font-medium no-print' }, 'Sair')
+                      showUserNav && React.createElement('button', { onClick: logout, className: 'px-4 py-2 hover:bg-blue-700 rounded font-medium no-print' }, 'Sair')
                     )
                   )
                 )
@@ -152,7 +155,15 @@
                     React.createElement('span', { className: 'text-xl font-bold' }, 'ManutenCar'),
                     React.createElement('div', { className: 'flex items-center gap-4' },
                       React.createElement('button', { onClick: toggleColorMode, className: 'p-2 rounded-full hover:bg-blue-700 focus:outline-none no-print' }, React.createElement('span', { className: 'material-icons align-middle' }, mode === 'dark' ? 'brightness_7' : 'brightness_4')),
-                      token && React.createElement('button', { onClick: logout, className: 'px-4 py-2 hover:bg-blue-700 rounded font-medium no-print' }, 'Sair')
+                      showUserNav && user && React.createElement('div', { className: 'text-right mr-4 no-print' },
+                        React.createElement('div', { className: 'text-sm font-medium' }, user.name || user.email),
+                        React.createElement('div', { className: 'text-xs opacity-75' }, user.email)
+                      ),
+                      showUserNav && React.createElement('button', {
+                        onClick: () => window.location.href = '/profile',
+                        className: 'px-3 py-2 hover:bg-blue-700 rounded font-medium text-sm no-print'
+                      }, 'Perfil'),
+                      showUserNav && React.createElement('button', { onClick: logout, className: 'px-4 py-2 hover:bg-blue-700 rounded font-medium no-print' }, 'Sair')
                     )
                   )
                 )
