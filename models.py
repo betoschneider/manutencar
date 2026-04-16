@@ -9,6 +9,8 @@ class User(Base):
     name = Column(String, nullable=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
     vehicles = relationship("Vehicle", back_populates="owner")
     config = relationship("UserConfig", back_populates="user", uselist=False)
 
