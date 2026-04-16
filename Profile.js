@@ -19,6 +19,10 @@
     const [aiLoading, setAiLoading] = useState(false);
     const [aiMessage, setAiMessage] = useState('');
 
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [showApiKey, setShowApiKey] = useState(false);
+
     useEffect(() => {
       const fetchAiConfig = async () => {
         try {
@@ -148,26 +152,58 @@
 
         React.createElement('div', null,
           React.createElement('label', { htmlFor: 'password', className: 'block text-sm font-medium text-gray-700 dark:text-gray-300' }, 'Nova Senha (deixe em branco para manter)'),
-          React.createElement('input', {
-            type: 'password',
-            id: 'password',
-            name: 'password',
-            value: formData.password,
-            onChange: handleChange,
-            className: 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white'
-          })
+          React.createElement('div', { className: 'relative mt-1' },
+            React.createElement('input', {
+              type: showPassword ? 'text' : 'password',
+              id: 'password',
+              name: 'password',
+              value: formData.password,
+              onChange: handleChange,
+              className: 'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white pr-10'
+            }),
+            React.createElement('button', {
+              type: 'button',
+              className: 'absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 z-20',
+              onClick: () => setShowPassword(!showPassword)
+            },
+              showPassword ? 
+                React.createElement('svg', { className: 'h-5 w-5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor' },
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' })
+                ) :
+                React.createElement('svg', { className: 'h-5 w-5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor' },
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z' }),
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' })
+                )
+            )
+          )
         ),
 
         React.createElement('div', null,
           React.createElement('label', { htmlFor: 'confirmPassword', className: 'block text-sm font-medium text-gray-700 dark:text-gray-300' }, 'Confirmar Nova Senha'),
-          React.createElement('input', {
-            type: 'password',
-            id: 'confirmPassword',
-            name: 'confirmPassword',
-            value: formData.confirmPassword,
-            onChange: handleChange,
-            className: 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white'
-          })
+          React.createElement('div', { className: 'relative mt-1' },
+            React.createElement('input', {
+              type: showConfirmPassword ? 'text' : 'password',
+              id: 'confirmPassword',
+              name: 'confirmPassword',
+              value: formData.confirmPassword,
+              onChange: handleChange,
+              className: 'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white pr-10'
+            }),
+            React.createElement('button', {
+              type: 'button',
+              className: 'absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 z-20',
+              onClick: () => setShowConfirmPassword(!showConfirmPassword)
+            },
+              showConfirmPassword ? 
+                React.createElement('svg', { className: 'h-5 w-5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor' },
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' })
+                ) :
+                React.createElement('svg', { className: 'h-5 w-5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor' },
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z' }),
+                  React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' })
+                )
+            )
+          )
         ),
 
         error && React.createElement('div', { className: 'text-red-600 dark:text-red-400 text-sm' }, error),
@@ -209,13 +245,29 @@
               React.createElement('label', { className: 'block text-sm font-medium text-gray-700 dark:text-gray-300' },
                 'API Key ', hasApiKey && React.createElement('span', { className: 'text-green-600 dark:text-green-400 text-xs ml-2' }, '✓ Chave já cadastrada')
               ),
-              React.createElement('input', {
-                type: 'password',
-                value: aiApiKey,
-                onChange: (e) => setAiApiKey(e.target.value),
-                placeholder: hasApiKey ? '•••••••••••••••• (deixe em branco p/ manter)' : 'Cole sua API Key aqui...',
-                className: 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white'
-              })
+              React.createElement('div', { className: 'relative mt-1' },
+                React.createElement('input', {
+                  type: showApiKey ? 'text' : 'password',
+                  value: aiApiKey,
+                  onChange: (e) => setAiApiKey(e.target.value),
+                  placeholder: hasApiKey ? '•••••••••••••••• (deixe em branco p/ manter)' : 'Cole sua API Key aqui...',
+                  className: 'block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white pr-10'
+                }),
+                React.createElement('button', {
+                  type: 'button',
+                  className: 'absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500 z-20',
+                  onClick: () => setShowApiKey(!showApiKey)
+                },
+                  showApiKey ? 
+                    React.createElement('svg', { className: 'h-5 w-5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor' },
+                      React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21' })
+                    ) :
+                    React.createElement('svg', { className: 'h-5 w-5', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor' },
+                      React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z' }),
+                      React.createElement('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: 2, d: 'M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' })
+                    )
+                )
+              )
             ),
             aiMessage && React.createElement('div', { className: aiMessage.includes('Erro') ? 'text-red-600 text-sm' : 'text-green-600 text-sm' }, aiMessage),
             React.createElement('button', {

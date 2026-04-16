@@ -151,7 +151,9 @@ def send_email_alert(email: str, message: str):
 def register(user: UserCreate, db: Session = Depends(get_db)):
     try:
         # 1. Verificar se o e-mail já existe
-        existing = db.query(models.User).filter(models.User.email == user.email).first()
+        from sqlalchemy import func
+        email_clean = user.email.strip().lower()
+        existing = db.query(models.User).filter(func.lower(models.User.email) == email_clean).first()
         if existing:
             raise HTTPException(status_code=400, detail="Este e-mail já está em uso.")
             
@@ -202,7 +204,9 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/token")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    from sqlalchemy import func
+    email_clean = form_data.username.strip().lower()
+    user = db.query(models.User).filter(func.lower(models.User.email) == email_clean).first()
     if not user or not pwd_context.verify(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Login incorreto")
     
@@ -219,7 +223,9 @@ def update_current_user(user_update: UserUpdate, current_user: models.User = Dep
         current_user.name = user_update.name
     if user_update.email is not None:
         # Check if email is already taken
-        existing = db.query(models.User).filter(models.User.email == user_update.email, models.User.id != current_user.id).first()
+        from sqlalchemy import func
+        email_clean = user_update.email.strip().lower()
+        existing = db.query(models.User).filter(func.lower(models.User.email) == email_clean, models.User.id != current_user.id).first()
         if existing:
             raise HTTPException(status_code=400, detail="Este e-mail já está em uso.")
         current_user.email = user_update.email
