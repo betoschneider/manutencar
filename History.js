@@ -19,7 +19,9 @@
     const [editingLogId, setEditingLogId] = useState(null);
     const [editingLogForm, setEditingLogForm] = useState({ maintenance_type_id: '', km_performed: 0, date_performed: '', notes: '', service_cost: 0, product_cost: 0, category: 'preventiva' });
     const [categoryFilter, setCategoryFilter] = useState('todas');
-    
+    const [historyLimit, setHistoryLimit] = useState(10);
+    const [currentPage, setCurrentPage] = useState(1);
+
     // AI State
     const [aiInsights, setAiInsights] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
@@ -62,7 +64,7 @@
         const mTypes = typesRes.data || [];
         setMaintenanceHistory(history);
         setMaintenanceTypes(mTypes);
-        
+
         if (insightsRes && insightsRes.data && insightsRes.data.generated_at) {
           setAiInsights(insightsRes.data);
         }
@@ -70,7 +72,12 @@
         // Calcular análises
         const now = new Date();
         const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+        const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+
         const last12MonthsLogs = history.filter(log => new Date(log.date_performed) >= oneYearAgo);
+        const last6MonthsLogs = history.filter(log => new Date(log.date_performed) >= sixMonthsAgo);
+        const last3MonthsLogs = history.filter(log => new Date(log.date_performed) >= threeMonthsAgo);
 
         // KM rodados nos últimos 12 meses
         let kmDriven = 0;
@@ -144,7 +151,9 @@
           avgCosts,
           futureProjections,
           monthlyProjection,
-          totalSpent: Object.values(costsByCategory).reduce((a, b) => a + b, 0)
+          totalSpent: Object.values(costsByCategory).reduce((a, b) => a + b, 0),
+          totalSpent6Months: last6MonthsLogs.reduce((sum, log) => sum + (log.service_cost || 0) + (log.product_cost || 0), 0),
+          totalSpent3Months: last3MonthsLogs.reduce((sum, log) => sum + (log.service_cost || 0) + (log.product_cost || 0), 0)
         });
       } catch (error) {
         console.error("Erro ao buscar dados", error);
@@ -155,7 +164,7 @@
       setAiLoading(true);
       setAiError('');
       try {
-        const res = await axios.post(`vehicles/${id}/insights`, {}, { headers: { Authorization: `Bearer ${token}` }});
+        const res = await axios.post(`vehicles/${id}/insights`, {}, { headers: { Authorization: `Bearer ${token}` } });
         setAiInsights(res.data);
       } catch (err) {
         setAiError(err?.response?.data?.detail || 'Erro ao gerar insights.');
@@ -249,106 +258,149 @@
         maintenanceHistory.length === 0
           ? React.createElement('p', { className: 'text-gray-600 dark:text-gray-400' }, 'Nenhuma manutenção registrada ainda.')
           : React.createElement('div', { className: 'space-y-6' },
-            // Filtro de Categoria
-            React.createElement('div', { className: 'flex items-center gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg no-print' },
-              React.createElement('span', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300' }, 'Filtrar por Categoria:'),
-              React.createElement('div', { className: 'flex gap-2' },
-                ['todas', 'preventiva', 'desgaste', 'corretiva'].map(cat =>
-                  React.createElement('button', {
-                    key: cat,
-                    onClick: () => setCategoryFilter(cat),
-                    className: `px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === cat
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
-                      }`
-                  }, cat.charAt(0).toUpperCase() + cat.slice(1))
+            // Filtros de Categoria e Exibição
+            React.createElement('div', { className: 'flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg no-print' },
+              React.createElement('div', { className: 'flex items-center gap-4' },
+                React.createElement('span', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300' }, 'Filtrar por Categoria:'),
+                React.createElement('div', { className: 'flex gap-2 flex-wrap' },
+                  ['todas', 'preventiva', 'desgaste', 'corretiva'].map(cat =>
+                    React.createElement('button', {
+                      key: cat,
+                      onClick: () => { setCategoryFilter(cat); setCurrentPage(1); },
+                      className: `px-3 py-1 rounded-full text-xs font-medium transition-colors ${categoryFilter === cat
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                        }`
+                    }, cat.charAt(0).toUpperCase() + cat.slice(1))
+                  )
+                )
+              ),
+              React.createElement('div', { className: 'flex items-center gap-2' },
+                React.createElement('span', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300' }, 'Exibir:'),
+                React.createElement('select', {
+                  value: historyLimit,
+                  onChange: (e) => {
+                    setHistoryLimit(e.target.value === 'tudo' ? 'tudo' : parseInt(e.target.value, 10));
+                    setCurrentPage(1);
+                  },
+                  className: 'p-1.5 rounded text-sm border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:border-blue-500'
+                },
+                  React.createElement('option', { value: 5 }, '5 linhas'),
+                  React.createElement('option', { value: 10 }, '10 linhas'),
+                  React.createElement('option', { value: 20 }, '20 linhas'),
+                  React.createElement('option', { value: 'tudo' }, 'Tudo')
                 )
               )
             ),
 
-            // Lista Única Ordenada
-            React.createElement('div', { className: 'space-y-3' },
-              maintenanceHistory
+            // Lista Única Ordenada e Paginada
+            (() => {
+              const filteredHistory = maintenanceHistory
                 .filter(log => categoryFilter === 'todas' || log.category === categoryFilter)
-                .sort((a, b) => new Date(b.date_performed) - new Date(a.date_performed))
-                .map(item =>
-                  React.createElement('div', {
-                    key: item.id,
-                    className: 'border border-gray-200 dark:border-gray-700 rounded-lg p-4'
-                  },
-                    React.createElement('div', { className: 'flex justify-between items-start mb-2' },
-                      React.createElement('div', null,
-                        React.createElement('h5', { className: 'text-lg font-semibold text-gray-900 dark:text-white' }, item.maintenance_type || item.maintenance_type_name),
-                        React.createElement('span', {
-                          className: `text-xs px-2 py-0.5 rounded-full font-medium ${item.category === 'preventiva' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                            item.category === 'desgaste' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                              'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                            }`
-                        }, (item.category || 'preventiva').toUpperCase())
-                      ),
-                      React.createElement('div', { className: 'flex items-center gap-2 no-print' },
-                        React.createElement('span', { className: 'text-sm text-gray-600 dark:text-gray-400' },
-                          new Date(item.date_performed).toLocaleDateString('pt-BR')
+                .sort((a, b) => new Date(b.date_performed) - new Date(a.date_performed));
+
+              const totalItems = filteredHistory.length;
+              const totalPages = historyLimit === 'tudo' ? 1 : Math.ceil(totalItems / historyLimit);
+
+              const paginatedHistory = historyLimit === 'tudo'
+                ? filteredHistory
+                : filteredHistory.slice((currentPage - 1) * historyLimit, currentPage * historyLimit);
+
+              return React.createElement(React.Fragment, null,
+                React.createElement('div', { className: 'space-y-3' },
+                  paginatedHistory.map(item =>
+                    React.createElement('div', {
+                      key: item.id,
+                      className: 'border border-gray-200 dark:border-gray-700 rounded-lg p-4'
+                    },
+                      React.createElement('div', { className: 'flex justify-between items-start mb-2' },
+                        React.createElement('div', null,
+                          React.createElement('h5', { className: 'text-lg font-semibold text-gray-900 dark:text-white' }, item.maintenance_type || item.maintenance_type_name),
+                          React.createElement('span', {
+                            className: `text-xs px-2 py-0.5 rounded-full font-medium ${item.category === 'preventiva' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                              item.category === 'desgaste' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                              }`
+                          }, (item.category || 'preventiva').toUpperCase())
                         ),
-                        React.createElement('button', {
-                          onClick: () => {
-                            const type = maintenanceTypes.find(t => t.name === item.maintenance_type);
-                            setEditingLogId(item.id);
-                            setEditingLogForm({
-                              maintenance_type_id: type ? type.id : '',
-                              km_performed: item.km_performed,
-                              date_performed: item.date_performed.split('T')[0],
-                              notes: item.notes || '',
-                              service_cost: item.service_cost || 0,
-                              product_cost: item.product_cost || 0,
-                              category: item.category || 'preventiva'
-                            });
-                          },
-                          className: 'text-blue-500 hover:text-blue-700'
-                        }, React.createElement('span', { className: 'material-icons text-lg' }, 'edit')),
-                        React.createElement('button', {
-                          onClick: async () => {
-                            if (!confirm('Deseja realmente excluir este registro de manutenção?')) return;
-                            try {
-                              await axios.delete(`maintenance-logs/${item.id}`, { headers: { Authorization: `Bearer ${token}` } });
-                              fetchData();
-                            } catch (err) {
-                              alert('Erro ao excluir registro');
-                            }
-                          },
-                          className: 'text-red-500 hover:text-red-700'
-                        }, React.createElement('span', { className: 'material-icons text-lg' }, 'delete'))
-                      )
-                    ),
-                    React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4 text-sm' },
-                      React.createElement('div', null,
-                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'KM: '),
-                        React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.km_performed)
-                      ),
-                      React.createElement('div', null,
-                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Serviço: '),
-                        React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.service_cost || 0}`)
-                      ),
-                      React.createElement('div', null,
-                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Peças: '),
-                        React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.product_cost || 0}`)
-                      ),
-                      React.createElement('div', null,
-                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Total: '),
-                        React.createElement('span', {
-                          className: `font-semibold ${(item.service_cost || 0) + (item.product_cost || 0) > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`
-                        },
-                          `R$ ${(item.service_cost || 0) + (item.product_cost || 0)}`
+                        React.createElement('div', { className: 'flex items-center gap-2 no-print' },
+                          React.createElement('span', { className: 'text-sm text-gray-600 dark:text-gray-400' },
+                            new Date(item.date_performed).toLocaleDateString('pt-BR')
+                          ),
+                          React.createElement('button', {
+                            onClick: () => {
+                              const type = maintenanceTypes.find(t => t.name === item.maintenance_type);
+                              setEditingLogId(item.id);
+                              setEditingLogForm({
+                                maintenance_type_id: type ? type.id : '',
+                                km_performed: item.km_performed,
+                                date_performed: item.date_performed.split('T')[0],
+                                notes: item.notes || '',
+                                service_cost: item.service_cost || 0,
+                                product_cost: item.product_cost || 0,
+                                category: item.category || 'preventiva'
+                              });
+                            },
+                            className: 'text-blue-500 hover:text-blue-700'
+                          }, React.createElement('span', { className: 'material-icons text-lg' }, 'edit')),
+                          React.createElement('button', {
+                            onClick: async () => {
+                              if (!confirm('Deseja realmente excluir este registro de manutenção?')) return;
+                              try {
+                                await axios.delete(`maintenance-logs/${item.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                                fetchData();
+                              } catch (err) {
+                                alert('Erro ao excluir registro');
+                              }
+                            },
+                            className: 'text-red-500 hover:text-red-700'
+                          }, React.createElement('span', { className: 'material-icons text-lg' }, 'delete'))
                         )
+                      ),
+                      React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-4 text-sm' },
+                        React.createElement('div', null,
+                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'KM: '),
+                          React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.km_performed)
+                        ),
+                        React.createElement('div', null,
+                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Serviço: '),
+                          React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.service_cost || 0}`)
+                        ),
+                        React.createElement('div', null,
+                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Peças: '),
+                          React.createElement('span', { className: 'text-gray-900 dark:text-white' }, `R$ ${item.product_cost || 0}`)
+                        ),
+                        React.createElement('div', null,
+                          React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Total: '),
+                          React.createElement('span', {
+                            className: `font-semibold ${(item.service_cost || 0) + (item.product_cost || 0) > 500 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`
+                          },
+                            `R$ ${(item.service_cost || 0) + (item.product_cost || 0)}`
+                          )
+                        )
+                      ),
+                      item.notes && React.createElement('div', { className: 'mt-2' },
+                        React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Observações: '),
+                        React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.notes)
                       )
-                    ),
-                    item.notes && React.createElement('div', { className: 'mt-2' },
-                      React.createElement('span', { className: 'font-medium text-gray-700 dark:text-gray-300' }, 'Observações: '),
-                      React.createElement('span', { className: 'text-gray-900 dark:text-white' }, item.notes)
                     )
                   )
+                ),
+                historyLimit !== 'tudo' && totalPages > 1 && React.createElement('div', { className: 'flex justify-center flex-wrap items-center gap-4 mt-6 no-print' },
+                  React.createElement('button', {
+                    onClick: () => setCurrentPage(p => Math.max(1, p - 1)),
+                    disabled: currentPage === 1,
+                    className: 'px-4 py-2 rounded font-medium text-sm transition-colors ' + (currentPage === 1 ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600')
+                  }, 'Anterior'),
+                  React.createElement('span', { className: 'text-sm font-medium text-gray-700 dark:text-gray-300' }, `Página ${currentPage} de ${totalPages}`),
+                  React.createElement('button', {
+                    onClick: () => setCurrentPage(p => Math.min(totalPages, p + 1)),
+                    disabled: currentPage === totalPages,
+                    className: 'px-4 py-2 rounded font-medium text-sm transition-colors ' + (currentPage === totalPages ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600 cursor-not-allowed' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600')
+                  }, 'Próxima')
                 )
-            ),
+              );
+            })(),
 
             // Consolidado por Categoria
             React.createElement('div', { className: 'mt-10 pt-6 border-t border-gray-200 dark:border-gray-700 no-print' },
@@ -471,15 +523,15 @@
           ),
 
         // Seção Assistente IA (BYOK)
-        React.createElement('div', { className: 'no-print mb-8' },
+        React.createElement('div', { className: 'no-print mt-12 mb-8' },
           React.createElement('div', { className: 'bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg shadow-md p-6 text-white' },
             React.createElement('div', { className: 'flex justify-between items-center mb-4' },
-              React.createElement('h3', { className: 'text-xl font-bold flex items-center gap-2' }, 
-                React.createElement('span', { className: 'material-icons' }, 'auto_awesome'), 
+              React.createElement('h3', { className: 'text-xl font-bold flex items-center gap-2' },
+                React.createElement('span', { className: 'material-icons' }, 'auto_awesome'),
                 'Assistente Mecânico IA',
-                React.createElement('a', { 
-                  href: 'https://aistudio.google.com/', 
-                  target: '_blank', 
+                React.createElement('a', {
+                  href: 'https://aistudio.google.com/',
+                  target: '_blank',
                   rel: 'noopener noreferrer',
                   title: 'Obtenha seu token gratuito do Gemini no Google AI Studio e cadastre em seu Perfil.',
                   className: 'text-indigo-200 hover:text-white transition-colors flex items-center ml-1'
@@ -491,27 +543,27 @@
                 className: 'bg-white text-indigo-600 hover:bg-gray-100 px-4 py-2 rounded font-medium transition-colors disabled:opacity-50 shadow-sm'
               }, aiLoading ? 'Gerando...' : (aiInsights ? 'Atualizar Insights' : 'Gerar Insights Automáticos'))
             ),
-            
+
             aiError && React.createElement('div', { className: 'bg-red-500/30 text-white p-3 rounded mb-4 text-sm' }, aiError),
-            
+
             aiInsights ? React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6 mt-4' },
               React.createElement('div', { className: 'bg-white/10 rounded p-5' },
-                React.createElement('h4', { className: 'font-bold mb-3 flex items-center gap-2 text-red-200' }, 
-                    React.createElement('span', { className: 'material-icons text-red-300' }, 'warning'), 'Problemas Crônicos'
+                React.createElement('h4', { className: 'font-bold mb-3 flex items-center gap-2 text-red-200' },
+                  React.createElement('span', { className: 'material-icons text-red-300' }, 'warning'), 'Problemas Crônicos'
                 ),
                 React.createElement('ul', { className: 'list-disc pl-5 space-y-2 text-sm leading-relaxed' },
                   (aiInsights.chronic_issues || []).map((issue, idx) => React.createElement('li', { key: idx }, issue))
                 )
               ),
               React.createElement('div', { className: 'bg-white/10 rounded p-5' },
-                React.createElement('h4', { className: 'font-bold mb-3 flex items-center gap-2 text-green-200' }, 
-                    React.createElement('span', { className: 'material-icons text-green-300' }, 'build_circle'), 'Manutenções Sugeridas'
+                React.createElement('h4', { className: 'font-bold mb-3 flex items-center gap-2 text-green-200' },
+                  React.createElement('span', { className: 'material-icons text-green-300' }, 'build_circle'), 'Manutenções Sugeridas'
                 ),
                 React.createElement('ul', { className: 'list-disc pl-5 space-y-2 text-sm leading-relaxed' },
                   (aiInsights.suggested_maintenance || []).map((maint, idx) => React.createElement('li', { key: idx }, maint))
                 )
               )
-            ) : (!aiLoading && React.createElement('p', { className: 'text-indigo-100 text-sm mt-4' }, 
+            ) : (!aiLoading && React.createElement('p', { className: 'text-indigo-100 text-sm mt-4' },
               'Ao configurar sua API Key (OpenAI, Gemini ou Claude) no Perfil e clicar em Gerar Insights, a IA irá analisar todo o histórico deste veículo de acordo com os problemas crônicos comuns deste modelo e sugerir manutenções preventivas urgentes! ',
               React.createElement('a', {
                 href: 'https://aistudio.google.com/',
@@ -636,15 +688,51 @@
               )
             ),
             React.createElement('div', { className: 'mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded' },
-              React.createElement('h5', { className: 'text-md font-semibold text-blue-900 dark:text-blue-100 mb-2' }, 'Comparação com Gastos Passados'),
-              React.createElement('div', { className: 'flex justify-between' },
-                React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Gasto Médio Mensal (últimos 12 meses):'),
-                React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${((analysis.totalSpent || 0) / 12).toFixed(2)}`)
-              ),
-              React.createElement('div', { className: 'flex justify-between mt-1' },
-                React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Projeção Média Mensal (próximos 12 meses):'),
-                React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${((analysis.monthlyProjection || []).reduce((sum, p) => sum + p.totalCost, 0) / 12).toFixed(2)}`)
-              )
+              (() => {
+                const avg12 = (analysis.totalSpent || 0) / 12;
+                const avg6 = (analysis.totalSpent6Months || 0) / 6;
+                const avg3 = (analysis.totalSpent3Months || 0) / 3;
+                const proj12 = (analysis.monthlyProjection || []).reduce((sum, p) => sum + p.totalCost, 0) / 12;
+
+                const diff6 = avg12 > 0 ? ((avg6 - avg12) / avg12) * 100 : 0;
+                const diff3 = avg12 > 0 ? ((avg3 - avg12) / avg12) * 100 : 0;
+
+                const formatDiff = (diff) => {
+                  if (avg12 === 0) return '';
+                  const sign = diff > 0 ? '+' : '';
+                  return `(${sign}${diff.toFixed(1)}%)`;
+                };
+                const getDiffClass = (diff) => {
+                  if (avg12 === 0) return 'text-gray-500 dark:text-gray-400';
+                  return diff > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400';
+                };
+
+                return React.createElement(React.Fragment, null,
+                  React.createElement('h5', { className: 'text-md font-semibold text-blue-900 dark:text-blue-100 mb-2' }, 'Comparação com Gastos Passados'),
+                  React.createElement('div', { className: 'flex justify-between' },
+                    React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Gasto Médio Mensal (últimos 12 meses):'),
+                    React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${avg12.toFixed(2)}`)
+                  ),
+                  React.createElement('div', { className: 'flex justify-between mt-1' },
+                    React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Gasto Médio Mensal (últimos 6 meses):'),
+                    React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100 align-middle' },
+                      `R$ ${avg6.toFixed(2)} `,
+                      React.createElement('span', { className: `text-xs font-bold px-1.5 py-0.5 rounded-full ${getDiffClass(diff6)} bg-white/50 dark:bg-black/20 ml-1 inline-block` }, formatDiff(diff6))
+                    )
+                  ),
+                  React.createElement('div', { className: 'flex justify-between mt-1' },
+                    React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Gasto Médio Mensal (últimos 3 meses):'),
+                    React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100 align-middle' },
+                      `R$ ${avg3.toFixed(2)} `,
+                      React.createElement('span', { className: `text-xs font-bold px-1.5 py-0.5 rounded-full ${getDiffClass(diff3)} bg-white/50 dark:bg-black/20 ml-1 inline-block` }, formatDiff(diff3))
+                    )
+                  ),
+                  React.createElement('div', { className: 'flex justify-between mt-1 border-t border-blue-200 dark:border-blue-700/50 pt-1' },
+                    React.createElement('span', { className: 'text-blue-800 dark:text-blue-200' }, 'Projeção Média Mensal (próximos 12 meses):'),
+                    React.createElement('span', { className: 'font-semibold text-blue-900 dark:text-blue-100' }, `R$ ${proj12.toFixed(2)}`)
+                  )
+                );
+              })()
             )
           ),
 
