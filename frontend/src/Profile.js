@@ -238,7 +238,8 @@
                 React.createElement('option', { value: '' }, 'Desativado'),
                 React.createElement('option', { value: 'openai' }, 'OpenAI (ChatGPT)'),
                 React.createElement('option', { value: 'gemini' }, 'Google Gemini'),
-                React.createElement('option', { value: 'claude' }, 'Anthropic Claude')
+                React.createElement('option', { value: 'claude' }, 'Anthropic Claude'),
+                React.createElement('option', { value: 'deepseek' }, 'DeepSeek')
               )
             ),
             React.createElement('div', null,

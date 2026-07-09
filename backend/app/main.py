@@ -1,10 +1,15 @@
-from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
+import logging
+import secrets
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse, Response
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from pydantic import BaseModel
 from passlib.context import CryptContext
@@ -13,8 +18,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 import os
 import json
-import httpx
+import hmac
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -25,17 +32,24 @@ from app.database import SessionLocal, engine
 # Nota: Tabelas gerenciadas pelo Alembic (migrations versionadas)
 # Auto-migration removido - usar `alembic upgrade head` para aplicar migrations
 
-app = FastAPI(title="ManutenCar API")
+# Rate Limiting
+limiter = Limiter(key_func=get_remote_address)
 
-origins = ["*"]
+app = FastAPI(title="ManutenCar API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS restrito — em produção, definir FRONTEND_URL com a origem exata
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8511")
+origins = [FRONTEND_URL]
 
 # Configuração de CORS para permitir que o frontend acesse o backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Limite de contas (0 = ilimitado)
@@ -59,8 +73,17 @@ async def health_check():
 
 # Configuração de Segurança
 SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY não definida no ambiente. Execute: python -c 'import secrets; print(secrets.token_urlsafe(32))' e defina a variável SECRET_KEY.")
+if SECRET_KEY == "sua_chave_secreta_super_segura":
+    raise RuntimeError("SECRET_KEY está com o valor padrão inseguro. Gere uma nova chave com: python -c 'import secrets; print(secrets.token_urlsafe(32))'")
+
 ALGORITHM = "HS256"
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=12
+)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # Dependência de Banco de Dados
@@ -139,8 +162,18 @@ class NormalizeRequest(BaseModel):
 
 
 # --- Funções Auxiliares ---
-def create_access_token(data: dict):
+def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
+    now = datetime.now(timezone.utc)
+    if expires_delta:
+        expire = now + expires_delta
+    else:
+        expire = now + timedelta(hours=1)  # Token expira em 1 hora por padrão
+    to_encode.update({
+        "exp": expire,
+        "iat": now,
+        "jti": secrets.token_urlsafe(16)
+    })
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -164,8 +197,17 @@ def send_email_alert(email: str, message: str):
 # --- Rotas ---
 
 @app.post("/register")
-def register(user: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/hour")
+def register(request: Request, user: UserCreate, db: Session = Depends(get_db)):
     try:
+        # 0. Validar força da senha
+        if len(user.password) < 8:
+            raise HTTPException(status_code=400, detail="Senha deve ter no mínimo 8 caracteres.")
+        if not any(c.isalpha() for c in user.password):
+            raise HTTPException(status_code=400, detail="Senha deve conter pelo menos uma letra.")
+        if not any(c.isdigit() for c in user.password):
+            raise HTTPException(status_code=400, detail="Senha deve conter pelo menos um número.")
+
         # 1. Verificar limite de contas (ACCOUNT_QUOTE > 0)
         if ACCOUNT_QUOTE > 0:
             total_users = db.query(func.count(models.User.id)).scalar()
@@ -218,13 +260,14 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         if "unique" in error_msg and "email" in error_msg:
             raise HTTPException(status_code=400, detail="Este e-mail já está em uso.")
         raise HTTPException(status_code=400, detail=f"Erro de integridade no banco de dados: {e}")
-    except Exception as e:
+    except Exception:
         db.rollback()
-        print(f"ERRO NO REGISTRO: {e}")
-        raise HTTPException(status_code=500, detail=f"Ocorreu um erro interno: {e}")
+        logger.exception("ERRO NO REGISTRO")
+        raise HTTPException(status_code=500, detail="Ocorreu um erro interno no servidor.")
 
 @app.post("/token")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     email_clean = form_data.username.strip().lower()
     user = db.query(models.User).filter(func.lower(models.User.email) == email_clean).first()
     if not user or not pwd_context.verify(form_data.password, user.hashed_password):
@@ -275,8 +318,11 @@ def delete_current_user(current_user: models.User = Depends(get_current_user), d
     return {"msg": "Conta excluída com sucesso"}
 
 @app.get("/users")
-def get_users(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.query(models.User).all()
+def get_users(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Removido endpoint aberto que expunha todos os usuários.
+    # Se necessário no futuro, implementar papel de administrador.
+    # Por enquanto, retorna apenas os dados do próprio usuário.
+    return [{"id": current_user.id, "name": current_user.name, "email": current_user.email}]
 
 @app.get("/maintenance-types")
 def get_maintenance_types(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -599,6 +645,13 @@ async def google_auth(req: GoogleAuthRequest, db: Session = Depends(get_db)):
                 raise HTTPException(status_code=401, detail="Token Google inválido.")
             
             google_data = resp.json()
+            
+            # Validar que o token foi emitido para este aplicativo (aud)
+            token_aud = google_data.get("aud")
+            token_azp = google_data.get("azp")
+            if token_aud != GOOGLE_CLIENT_ID and token_azp != GOOGLE_CLIENT_ID:
+                raise HTTPException(status_code=401, detail="Token Google não pertence a este aplicativo.")
+            
             google_email = google_data.get("email", "").strip().lower()
             google_name = google_data.get("name", google_email.split("@")[0])
             
@@ -664,9 +717,9 @@ async def google_auth(req: GoogleAuthRequest, db: Session = Depends(get_db)):
     
     except HTTPException:
         raise
-    except Exception as e:
-        print(f"ERRO NO GOOGLE AUTH: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro na autenticação com Google: {str(e)}")
+    except Exception:
+        logger.exception("ERRO NO GOOGLE AUTH")
+        raise HTTPException(status_code=500, detail="Erro interno na autenticação com Google.")
 
 
 # --- Rotas de Inteligência Artificial ---
@@ -674,7 +727,10 @@ async def google_auth(req: GoogleAuthRequest, db: Session = Depends(get_db)):
 @app.get("/global-stats")
 def get_global_stats(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     expected_token = os.getenv("GLOBAL_DASHBOARD_TOKEN")
-    if not expected_token or token != expected_token:
+    if not expected_token:
+        raise HTTPException(status_code=403, detail="Dashboard global não configurado.")
+    # Comparação em tempo constante para evitar timing attack
+    if not hmac.compare_digest(token, expected_token):
         raise HTTPException(status_code=403, detail="Acesso negado ao dashboard global")
     
     total_users = db.query(models.User).count()

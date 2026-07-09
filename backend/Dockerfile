@@ -15,6 +15,11 @@ COPY alembic.ini .
 COPY alembic/ ./alembic/
 COPY entrypoint.sh .
 
+# Cria usuário não-root para segurança
+RUN useradd --system --no-create-home appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8090
 
 CMD ["bash", "entrypoint.sh"]

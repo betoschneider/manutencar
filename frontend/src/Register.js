@@ -107,6 +107,7 @@
                 className: 'appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white',
                 placeholder: 'Nome de usuário',
                 value: formData.username,
+                autoComplete: 'name',
                 onChange: (e) => setFormData({ ...formData, username: e.target.value })
               })
             ),
@@ -119,6 +120,7 @@
                 className: 'appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white',
                 placeholder: 'Email',
                 value: formData.email,
+                autoComplete: 'email',
                 onChange: (e) => setFormData({ ...formData, email: e.target.value })
               })
             ),
@@ -131,6 +133,7 @@
                 className: 'appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white pr-10',
                 placeholder: 'Senha',
                 value: formData.password,
+                autoComplete: 'new-password',
                 onChange: (e) => setFormData({ ...formData, password: e.target.value })
               }),
               React.createElement('button', {
@@ -157,6 +160,7 @@
                 className: 'appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white pr-10',
                 placeholder: 'Confirmar senha',
                 value: formData.confirm_password,
+                autoComplete: 'new-password',
                 onChange: (e) => setFormData({ ...formData, confirm_password: e.target.value })
               }),
               React.createElement('button', {

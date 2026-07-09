@@ -8,13 +8,8 @@
     const { useState, useEffect } = React;
     const RouterLib = window.ReactRouterDOM || null;
 
-    // Logs diagnósticos para ajudar a entender estado das libs carregadas
-    try {
-      console.log('Debug: window.ReactRouterDOM =', RouterLib);
-      console.log('Debug: window.Recharts =', window.Recharts);
-    } catch (e) {
-      console.warn('Debug logging failed', e);
-    }
+    // Verificação silenciosa de disponibilidade das libs
+    // Removido logging diagnóstico para evitar vazamento de informações em produção
 
     // Se React Router não estiver disponível, usaremos o roteador fallback.
     if (!RouterLib) {
@@ -50,9 +45,7 @@
       setToken(newToken);
       // Buscar informações do usuário
       try {
-        console.log('Login: fetching user...');
         const res = await axios.get('me', { headers: { Authorization: `Bearer ${newToken}` } });
-        console.log('Login: user fetched:', res.data);
         setUser(res.data);
       } catch (error) {
         console.error('Erro ao buscar usuário no login:', error);
@@ -67,12 +60,9 @@
 
     // Buscar user se token existe mas user não
     useEffect(() => {
-      console.log('useEffect: token =', !!token, 'user =', !!user);
       if (token && !user) {
-        console.log('Fetching user info...');
         axios.get('me', { headers: { Authorization: `Bearer ${token}` } })
           .then(res => {
-            console.log('User fetched:', res.data);
             setUser(res.data);
           })
           .catch(error => {

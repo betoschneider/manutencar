@@ -9,19 +9,18 @@ import anthropic
 # Configuration for Encryption
 # In production, ensure ENCRYPTION_KEY is set in the .env file
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+if not ENCRYPTION_KEY:
+    raise RuntimeError(
+        "ENCRYPTION_KEY não definida no ambiente. Gere uma com: "
+        "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+    )
 
 _fernet_instance = None
 
 def get_fernet():
     global _fernet_instance
     if _fernet_instance is None:
-        if not ENCRYPTION_KEY:
-            # Fallback for dev only. If server restarts, keys will be unrecoverable!
-            print("WARNING: ENCRYPTION_KEY not set in environment. Using a temporary key. Do not use in production!")
-            temp_key = Fernet.generate_key()
-            _fernet_instance = Fernet(temp_key)
-        else:
-            _fernet_instance = Fernet(ENCRYPTION_KEY.encode())
+        _fernet_instance = Fernet(ENCRYPTION_KEY.encode())
     return _fernet_instance
 
 def encrypt_token(token: str) -> str:
@@ -124,6 +123,18 @@ def call_llm(prompt: str, provider: str, api_key: str) -> dict:
             ]
         )
         return clean_json_response(response.content[0].text)
+
+    elif provider == "deepseek":
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url="https://api.deepseek.com"
+        )
+        response = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        return clean_json_response(response.choices[0].message.content)
         
     else:
         raise HTTPException(status_code=400, detail="Provedor de IA inválido ou não suportado.")

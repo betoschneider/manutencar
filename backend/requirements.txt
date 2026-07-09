@@ -183,3 +183,5 @@ urllib3==2.7.0
     # via requests
 uvicorn==0.40.0
     # via -r requirements.in
+slowapi==0.1.9
+    # via -r requirements.in

@@ -14,10 +14,11 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=sqlite:///./manutencar.db
-      - SECRET_KEY=${SECRET_KEY:-sua_chave_secreta_super_segura}
+      - SECRET_KEY=${SECRET_KEY}
       - ACCOUNT_QUOTE=${ACCOUNT_QUOTE:-0}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     restart: unless-stopped
 
   frontend:
