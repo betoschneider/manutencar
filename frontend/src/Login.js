@@ -1,5 +1,5 @@
 (function () {
-  const { useState } = React;
+  const { useState, useEffect, useRef } = React;
 
   function Login() {
     const { Link } = window.ReactRouterDOM || {};
@@ -8,6 +8,68 @@
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [googleReady, setGoogleReady] = useState(false);
+    const googleBtnRef = useRef(null);
+
+    useEffect(() => {
+      const checkGoogle = () => {
+        if (typeof google !== 'undefined' && google.accounts) {
+          setGoogleReady(true);
+        } else {
+          setTimeout(checkGoogle, 1000);
+        }
+      };
+      if (!document.getElementById('gis-script')) {
+        const script = document.createElement('script');
+        script.id = 'gis-script';
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = checkGoogle;
+        document.head.appendChild(script);
+      } else {
+        checkGoogle();
+      }
+    }, []);
+
+    useEffect(() => {
+      if (googleReady && googleBtnRef.current) {
+        const clientId = window.GOOGLE_CLIENT_ID || '';
+        if (clientId) {
+          google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleGoogleCredential
+          });
+          google.accounts.id.renderButton(
+            googleBtnRef.current,
+            { theme: 'outline', size: 'large', width: '100%', text: 'signin_with' }
+          );
+          google.accounts.id.prompt();
+        }
+      }
+    }, [googleReady]);
+
+    const handleGoogleCredential = async (response) => {
+      try {
+        setLoading(true);
+        setError('');
+        const res = await axios.post('auth/google', { credential: response.credential });
+        const access = res.data && res.data.access_token;
+        if (access) {
+          localStorage.setItem('token', access);
+          window.location.href = '/';
+        } else {
+          setError('Erro na autenticação com Google.');
+        }
+      } catch (err) {
+        console.error('Google auth error:', err);
+        let msg = err?.response?.data?.detail || 'Erro ao autenticar com Google';
+        if (typeof msg === 'object') msg = JSON.stringify(msg);
+        setError(msg);
+      } finally {
+        setLoading(false);
+      }
+    };
 
     return React.createElement('div', { className: 'min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8' },
       React.createElement('div', { className: 'max-w-md w-full space-y-8' },
@@ -20,10 +82,10 @@
           className: 'mt-8 space-y-6', onSubmit: async (e) => {
             e.preventDefault();
             setLoading(true);
+            setError('');
             try {
               const domEmail = e.target.elements.email?.value || email;
               const domPassword = e.target.elements.password?.value || password;
-              
               const params = new URLSearchParams();
               params.append('username', domEmail.trim());
               params.append('password', domPassword);
@@ -90,13 +152,24 @@
             React.createElement('button', {
               type: 'submit',
               disabled: loading,
-              className: 'group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+              className: 'group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50'
             }, loading ? 'Entrando...' : 'Entrar')
-          ),
-          React.createElement('div', { className: 'text-center' },
-            React.createElement('span', { className: 'text-gray-600 dark:text-gray-400' }, 'Não tem conta? '),
-            Link ? React.createElement(Link, { to: '/register', className: 'text-blue-600 hover:text-blue-500 dark:text-blue-400' }, 'Criar conta') : React.createElement('a', { href: '/register', className: 'text-blue-600 hover:text-blue-500 dark:text-blue-400' }, 'Criar conta')
           )
+        ),
+        React.createElement('div', { className: 'relative my-6' },
+          React.createElement('div', { className: 'absolute inset-0 flex items-center' },
+            React.createElement('div', { className: 'w-full border-t border-gray-300 dark:border-gray-600' })
+          ),
+          React.createElement('div', { className: 'relative flex justify-center text-sm' },
+            React.createElement('span', { className: 'px-2 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400' }, 'ou')
+          )
+        ),
+        React.createElement('div', { ref: googleBtnRef, className: 'flex justify-center' },
+          !window.GOOGLE_CLIENT_ID && React.createElement('p', { className: 'text-sm text-gray-400' }, 'Google OAuth não configurado')
+        ),
+        React.createElement('div', { className: 'text-center mt-4' },
+          React.createElement('span', { className: 'text-gray-600 dark:text-gray-400' }, 'Não tem conta? '),
+          Link ? React.createElement(Link, { to: '/register', className: 'text-blue-600 hover:text-blue-500 dark:text-blue-400' }, 'Criar conta') : React.createElement('a', { href: '/register', className: 'text-blue-600 hover:text-blue-500 dark:text-blue-400' }, 'Criar conta')
         )
       )
     );

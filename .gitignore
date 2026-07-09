@@ -1,15 +1,18 @@
 node_modules/
 venv/
+backend/venv/
+backend/.venv/
 __pycache__/
+backend/app/__pycache__/
 .git
 *.db
 *.sqlite
 manutencar.db
+backend/app/manutencar.db
 # Vite build output
 dist/
 # Environment variables
 .env
+backend/requirements.lock
 # OS metadata
 .DS_Store
-backup/
-PLANEJAMENTO.md

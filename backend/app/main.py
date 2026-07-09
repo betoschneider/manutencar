@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -10,34 +10,20 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 import os
 import json
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
 
-import models
-import ai_service
-from database import SessionLocal, engine
+from app import models
+from app import ai_service
+from app.database import SessionLocal, engine
 
-# Cria as tabelas
-models.Base.metadata.create_all(bind=engine)
-
-# Auto-migration para adicionar colunas faltantes em bancos antigos (como os de produção)
-from sqlalchemy import text
-with engine.connect() as conn:
-    try:
-        conn.execute(text("ALTER TABLE users ADD COLUMN created_at DATETIME;"))
-        conn.execute(text("UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL;"))
-        conn.commit()
-    except Exception:
-        pass # Coluna já existe
-
-    try:
-        conn.execute(text("ALTER TABLE users ADD COLUMN last_login DATETIME;"))
-        conn.commit()
-    except Exception:
-        pass # Coluna já existe
+# Nota: Tabelas gerenciadas pelo Alembic (migrations versionadas)
+# Auto-migration removido - usar `alembic upgrade head` para aplicar migrations
 
 app = FastAPI(title="ManutenCar API")
 
@@ -52,16 +38,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Montar arquivos estáticos
-app.mount("/static", StaticFiles(directory="."), name="static")
+# Limite de contas (0 = ilimitado)
+ACCOUNT_QUOTE = int(os.getenv("ACCOUNT_QUOTE", "0"))
+
+# Montar arquivos estáticos do frontend (apenas se existir - local dev)
+if os.path.isdir("../frontend"):
+    app.mount("/static", StaticFiles(directory="../frontend"), name="static")
+
+# Endpoint para injetar configuração do frontend (ex: GOOGLE_CLIENT_ID)
+@app.get("/config.js")
+async def config_js():
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID", "")
+    js_content = f"window.GOOGLE_CLIENT_ID = {json.dumps(google_client_id)};"
+    return Response(content=js_content, media_type="application/javascript")
 
 # Rota de teste
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
-# Configuração de Segurança (Simplificada para o exemplo)
-SECRET_KEY = "sua_chave_secreta_super_segura"
+# Configuração de Segurança
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -169,20 +166,25 @@ def send_email_alert(email: str, message: str):
 @app.post("/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
     try:
-        # 1. Verificar se o e-mail já existe
-        from sqlalchemy import func
+        # 1. Verificar limite de contas (ACCOUNT_QUOTE > 0)
+        if ACCOUNT_QUOTE > 0:
+            total_users = db.query(func.count(models.User.id)).scalar()
+            if total_users >= ACCOUNT_QUOTE:
+                raise HTTPException(status_code=403, detail="Limite de contas atingido. Entre em contato com o administrador.")
+        
+        # 2. Verificar se o e-mail já existe
         email_clean = user.email.strip().lower()
         existing = db.query(models.User).filter(func.lower(models.User.email) == email_clean).first()
         if existing:
             raise HTTPException(status_code=400, detail="Este e-mail já está em uso.")
             
-        # 2. Criar novo usuário
+        # 3. Criar novo usuário
         hashed_pw = pwd_context.hash(user.password)
         db_user = models.User(name=user.name, email=user.email, hashed_password=hashed_pw)
         db.add(db_user)
         db.flush() # Obtém o ID sem commitar
         
-        # 3. Seed personal maintenance types (na mesma transação)
+        # 4. Seed personal maintenance types (na mesma transação)
         defaults = [
             {"name": "Troca de Óleo do Motor", "km": 10000, "months": 12},
             {"name": "Filtro de Óleo", "km": 10000, "months": 12},
@@ -223,7 +225,6 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/token")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    from sqlalchemy import func
     email_clean = form_data.username.strip().lower()
     user = db.query(models.User).filter(func.lower(models.User.email) == email_clean).first()
     if not user or not pwd_context.verify(form_data.password, user.hashed_password):
@@ -245,7 +246,6 @@ def update_current_user(user_update: UserUpdate, current_user: models.User = Dep
         current_user.name = user_update.name
     if user_update.email is not None:
         # Check if email is already taken
-        from sqlalchemy import func
         email_clean = user_update.email.strip().lower()
         existing = db.query(models.User).filter(func.lower(models.User.email) == email_clean, models.User.id != current_user.id).first()
         if existing:
@@ -573,6 +573,101 @@ def get_stats(user: models.User = Depends(get_current_user), db: Session = Depen
             monthly_data[key]["count"] += 1
             
     return sorted(monthly_data.values(), key=lambda x: x["sort_key"])
+
+# --- Google OAuth ---
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+
+class GoogleAuthRequest(BaseModel):
+    credential: str
+
+@app.post("/auth/google")
+async def google_auth(req: GoogleAuthRequest, db: Session = Depends(get_db)):
+    """Autentica ou cria conta via Google OAuth."""
+    import httpx
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="Google OAuth não configurado no servidor.")
+    
+    try:
+        # Verificar o token do Google
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://oauth2.googleapis.com/tokeninfo",
+                params={"id_token": req.credential}
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Token Google inválido.")
+            
+            google_data = resp.json()
+            google_email = google_data.get("email", "").strip().lower()
+            google_name = google_data.get("name", google_email.split("@")[0])
+            
+            # Verificar se o email foi verificado pelo Google
+            if not google_data.get("email_verified"):
+                raise HTTPException(status_code=401, detail="Email não verificado pelo Google.")
+            
+            if not google_email:
+                raise HTTPException(status_code=400, detail="Email não fornecido pelo Google.")
+            
+            # Verificar se o usuário já existe
+            user = db.query(models.User).filter(func.lower(models.User.email) == google_email).first()
+            
+            if user:
+                # Usuário já existe - login
+                user.last_login = datetime.utcnow()
+                db.commit()
+            else:
+                # Verificar limite de contas
+                if ACCOUNT_QUOTE > 0:
+                    total_users = db.query(func.count(models.User.id)).scalar()
+                    if total_users >= ACCOUNT_QUOTE:
+                        raise HTTPException(status_code=403, detail="Limite de contas atingido. Entre em contato com o administrador.")
+                
+                # Criar novo usuário (senha aleatória - nunca será usada para login)
+                import secrets
+                random_password = secrets.token_urlsafe(32)
+                hashed_pw = pwd_context.hash(random_password)
+                user = models.User(
+                    name=google_name,
+                    email=google_email,
+                    hashed_password=hashed_pw
+                )
+                db.add(user)
+                db.flush()
+                
+                # Seed personal maintenance types
+                defaults = [
+                    {"name": "Troca de Óleo do Motor", "km": 10000, "months": 12},
+                    {"name": "Filtro de Óleo", "km": 10000, "months": 12},
+                    {"name": "Filtro de Ar", "km": 20000, "months": 24},
+                    {"name": "Filtro de Combustível", "km": 20000, "months": 24},
+                    {"name": "Pastilhas de Freio", "km": 30000, "months": 36},
+                    {"name": "Fluido de Freio", "km": 40000, "months": 24},
+                    {"name": "Líquido de Arrefecimento", "km": 40000, "months": 24},
+                    {"name": "Óleo de Câmbio (Manual)", "km": 100000, "months": 60},
+                    {"name": "Correia Dentada", "km": 60000, "months": 48},
+                    {"name": "Velas de Ignição", "km": 50000, "months": 48},
+                ]
+                for item in defaults:
+                    mt = models.MaintenanceType(
+                        name=item["name"], 
+                        default_interval_km=item["km"], 
+                        default_interval_months=item["months"],
+                        user_id=user.id
+                    )
+                    db.add(mt)
+                
+                db.commit()
+            
+            access_token = create_access_token(data={"sub": user.email})
+            return {"access_token": access_token, "token_type": "bearer", "is_new": not bool(user.id if hasattr(user, 'id') else None)}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERRO NO GOOGLE AUTH: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro na autenticação com Google: {str(e)}")
+
 
 # --- Rotas de Inteligência Artificial ---
 

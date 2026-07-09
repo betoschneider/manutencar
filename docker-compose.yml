@@ -1,20 +1,30 @@
 services:
   backend:
     build:
-      context: .
+      context: backend
       dockerfile: Dockerfile
     ports:
       - "8090:8090"
     volumes:
-      - .:/app
+      - ./backend/app:/app/app
+      - ./backend/alembic.ini:/app/alembic.ini
+      - ./backend/alembic:/app/alembic
+      # Banco de dados persistente na raiz do projeto (fora do container)
+      - ./manutencar.db:/app/manutencar.db
     environment:
       - PYTHONUNBUFFERED=1
+      - DATABASE_URL=sqlite:///./manutencar.db
+      - SECRET_KEY=${SECRET_KEY:-sua_chave_secreta_super_segura}
+      - ACCOUNT_QUOTE=${ACCOUNT_QUOTE:-0}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
     restart: unless-stopped
 
   frontend:
     build:
-      context: .
+      context: frontend
       dockerfile: Dockerfile.frontend
     ports:
       - "8511:80"
     restart: unless-stopped
+
