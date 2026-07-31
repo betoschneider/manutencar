@@ -26,6 +26,7 @@
     const [aiInsights, setAiInsights] = useState(null);
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState('');
+    const [aiQuestion, setAiQuestion] = useState('');
 
     useEffect(() => {
       const style = document.createElement('style');
@@ -164,7 +165,7 @@
       setAiLoading(true);
       setAiError('');
       try {
-        const res = await axios.post(`vehicles/${id}/insights`, {}, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.post(`vehicles/${id}/insights`, { user_question: aiQuestion.trim() || null }, { headers: { Authorization: `Bearer ${token}` } });
         setAiInsights(res.data);
       } catch (err) {
         setAiError(err?.response?.data?.detail || 'Erro ao gerar insights.');
@@ -544,6 +545,24 @@
               }, aiLoading ? 'Gerando...' : (aiInsights ? 'Atualizar Insights' : 'Gerar Insights Automáticos'))
             ),
 
+            // Caixa de diálogo para pergunta/contexto do usuário (opcional)
+            React.createElement('div', { className: 'mb-4' },
+              React.createElement('label', { htmlFor: 'ai-question', className: 'block text-sm font-medium text-indigo-100 mb-2' },
+                'Faça uma pergunta ou descreva uma situação (opcional)'
+              ),
+              React.createElement('textarea', {
+                id: 'ai-question',
+                value: aiQuestion,
+                onChange: (e) => setAiQuestion(e.target.value),
+                rows: 2,
+                placeholder: 'Ex: Estou ouvindo um barulho novo vindo do motor... Será que vale a pena vender o carro agora?',
+                className: 'w-full px-3 py-2 rounded border border-indigo-300 dark:bg-gray-800 dark:border-gray-600 dark:text-white text-sm placeholder-indigo-200/70'
+              }),
+              React.createElement('p', { className: 'text-xs text-indigo-200 mt-1' },
+                'Se preenchida, sua pergunta será analisada junto com o histórico de manutenções para respostas mais assertivas. Deixe em branco para gerar insights automáticos padrão.'
+              )
+            ),
+
             aiError && React.createElement('div', { className: 'bg-red-500/30 text-white p-3 rounded mb-4 text-sm' }, aiError),
 
             aiInsights ? React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6 mt-4' },
@@ -564,7 +583,7 @@
                 )
               )
             ) : (!aiLoading && React.createElement('p', { className: 'text-indigo-100 text-sm mt-4' },
-              'Ao configurar sua API Key (OpenAI, Gemini ou Claude) no Perfil e clicar em Gerar Insights, a IA irá analisar todo o histórico deste veículo de acordo com os problemas crônicos comuns deste modelo e sugerir manutenções preventivas urgentes! ',
+              'Ao configurar sua API Key (OpenAI, Gemini, Claude ou DeepSeek) no Perfil e clicar em Gerar Insights, a IA irá analisar todo o histórico deste veículo de acordo com os problemas crônicos comuns deste modelo e sugerir manutenções preventivas urgentes! ',
               React.createElement('a', {
                 href: 'https://aistudio.google.com/',
                 target: '_blank',

@@ -35,7 +35,7 @@ def decrypt_token(encrypted_token: str) -> str:
     f = get_fernet()
     return f.decrypt(encrypted_token.encode()).decode()
 
-def get_insights_prompt(make: str, model: str, year: int, current_km: int, history: list) -> str:
+def get_insights_prompt(make: str, model: str, year: int, current_km: int, history: list, user_question: str = None) -> str:
     if not history:
         history_text = "Nenhuma manutenção registrada ainda."
     else:
@@ -53,11 +53,23 @@ def get_insights_prompt(make: str, model: str, year: int, current_km: int, histo
             history_text_lines.append(f"- {dp_str} ({km}km): {m_type}")
         history_text = "\n".join(history_text_lines)
     
+    # Seção opcional com a pergunta/contexto do usuário
+    if user_question and user_question.strip():
+        user_section = f"""
+
+PERGUNTA / CONTEXTO ADICIONAL DO USUÁRIO:
+{user_question.strip()}
+
+Leve esta informação em consideração na sua análise. Se for uma pergunta, responda-a diretamente de forma objetiva. Se for um contexto (ex: dúvida sobre vender o carro, barulho novo, etc.), use-o para tornar as recomendações mais assertivas, sempre cruzando com o histórico de manutenções do veículo acima.
+"""
+    else:
+        user_section = ""
+    
     return f"""Aja como um mecânico especialista premium da marca {make}.
 O cliente tem o veículo {make} {model} ano {year} com {current_km}km.
 De acordo com o histórico de manutenções realizadas:
 {history_text}
-
+{user_section}
 Baseado nos problemas crônicos conhecidos deste veículo e na quilometragem atual, indique as próximas manutenções preventivas urgentes e liste os problemas crônicos comuns deste modelo.
 
 Você DEVE retornar APENAS um objeto JSON válido, sem nenhum texto adicional fora do JSON, contendo exatamente duas chaves:
@@ -139,11 +151,11 @@ def call_llm(prompt: str, provider: str, api_key: str) -> dict:
     else:
         raise HTTPException(status_code=400, detail="Provedor de IA inválido ou não suportado.")
 
-def generate_vehicle_insights(make: str, model: str, year: int, current_km: int, history: list, provider: str, encrypted_key: str):
+def generate_vehicle_insights(make: str, model: str, year: int, current_km: int, history: list, provider: str, encrypted_key: str, user_question: str = None):
     decrypted_key = decrypt_token(encrypted_key)
     if not decrypted_key:
         raise HTTPException(status_code=400, detail="Chave de API não configurada.")
-    prompt = get_insights_prompt(make, model, year, current_km, history)
+    prompt = get_insights_prompt(make, model, year, current_km, history, user_question)
     try:
         return call_llm(prompt, provider, decrypted_key)
     except Exception as e:

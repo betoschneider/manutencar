@@ -10,6 +10,7 @@ ManutenCar é uma aplicação web para gerenciamento de manutenção veicular co
 -   **Registro de Manutenção:** Lançamento de serviços realizados com controle de custos (Peças e Mão de obra).
 -   **Alertas Inteligentes:** O sistema avisa automaticamente quando uma manutenção está vencida por tempo ou quilometragem.
 -   **Assistente Mecânico IA (BYOK):** Integração com inteligência artificial (OpenAI, Gemini, Claude, DeepSeek) usando a própria chave de API do usuário para analisar o histórico do veículo, diagnosticar problemas crônicos do modelo e sugerir manutenções preventivas urgentes.
+-   **Perguntas ao Assistente IA:** Caixa de diálogo opcional para o usuário fazer perguntas ou descrever situações (ex: barulho novo no motor, dúvida sobre vender o carro). Quando preenchida, a pergunta é incluída no prompt junto com o histórico de manutenções para respostas mais assertivas. Se deixada em branco, os insights são gerados apenas com o prompt padrão.
 -   **Padronização Automática:** Normalização inteligente da nomenclatura de serviços registrados utilizando IA para manter o histórico limpo e analítico.
 -   **Histórico Detalhado:** Visualização completa de todas as manutenções realizadas em cada veículo com exportação para CSV.
 -   **Dashboard com Gráficos e Projeções:** Visualização gráfica dos gastos, médias mensais e estimativas de manutenções futuras para os próximos 12 meses.

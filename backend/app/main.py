@@ -160,6 +160,9 @@ class UserConfigResponse(BaseModel):
 class NormalizeRequest(BaseModel):
     maintenance_names: List[str]
 
+class InsightsRequest(BaseModel):
+    user_question: Optional[str] = None
+
 
 # --- Funções Auxiliares ---
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -813,7 +816,7 @@ def get_vehicle_insights(vehicle_id: int, user: models.User = Depends(get_curren
     }
 
 @app.post("/vehicles/{vehicle_id}/insights")
-def generate_insights(vehicle_id: int, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def generate_insights(vehicle_id: int, req: InsightsRequest = None, user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     config = db.query(models.UserConfig).filter(models.UserConfig.user_id == user.id).first()
     if not config or not config.llm_provider or not config.llm_api_key_encrypted:
         raise HTTPException(status_code=400, detail="Configuração de IA ausente no perfil. Configure na aba de Perfil.")
@@ -837,7 +840,7 @@ def generate_insights(vehicle_id: int, user: models.User = Depends(get_current_u
             "km_performed": log.km_performed or 0
         })
     
-    # Call AI
+    # Call AI (inclui a pergunta/contexto do usuário, se fornecida)
     result = ai_service.generate_vehicle_insights(
         make=vehicle.make,
         model=vehicle.model,
@@ -845,7 +848,8 @@ def generate_insights(vehicle_id: int, user: models.User = Depends(get_current_u
         current_km=vehicle.current_km,
         history=history_data,
         provider=config.llm_provider,
-        encrypted_key=config.llm_api_key_encrypted
+        encrypted_key=config.llm_api_key_encrypted,
+        user_question=req.user_question if req else None
     )
     
     # Save to Cache
