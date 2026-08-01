@@ -13,13 +13,7 @@ RUN uv pip install --system -r requirements.txt
 COPY app/ ./app/
 COPY alembic.ini .
 COPY alembic/ ./alembic/
-COPY entrypoint.sh .
-
-# Cria usuário não-root para segurança
-RUN useradd --system --no-create-home appuser && \
-    chown -R appuser:appuser /app
-USER appuser
 
 EXPOSE 8090
 
-CMD ["bash", "entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8090"]

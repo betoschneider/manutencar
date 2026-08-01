@@ -105,7 +105,7 @@ Para habilitar o login com Google:
 
 ### Migrations com Alembic
 
-O esquema do banco de dados é versionado usando Alembic. Ao subir o container, as migrations pendentes são aplicadas automaticamente via `entrypoint.sh`.
+O esquema do banco de dados é versionado usando Alembic. Ao subir os containers, as migrations pendentes são aplicadas automaticamente pelo serviço `migrate` do Docker Compose (que executa `alembic upgrade head` antes do backend iniciar).
 
 - **Gerenciar novas migrations (desenvolvimento local):**
   ```bash

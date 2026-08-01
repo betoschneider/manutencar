@@ -1,4 +1,20 @@
 services:
+  # Aplica migrations antes do backend subir (substitui o entrypoint.sh)
+  migrate:
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    command: alembic upgrade head
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/alembic.ini:/app/alembic.ini
+      - ./backend/alembic:/app/alembic
+      # Banco de dados persistente na raiz do projeto (fora do container)
+      - ./manutencar.db:/app/manutencar.db
+    environment:
+      - DATABASE_URL=sqlite:///./manutencar.db
+    restart: "no"
+
   backend:
     build:
       context: backend
@@ -19,6 +35,9 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   frontend:
@@ -28,4 +47,3 @@ services:
     ports:
       - "8511:80"
     restart: unless-stopped
-
